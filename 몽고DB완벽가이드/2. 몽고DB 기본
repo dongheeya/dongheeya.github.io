@@ -1,11 +1,7 @@
 Chaper2. 몽고 DB 기본
 
-
-| 몽고DB |  RDBMS |
-|------ |------ |
-| Collection  | table|
-| Document  | 행  |
-
+* Collection ~= table
+* Document ~= 행
 * 모든 Collection내에는 고유한 "_id"를 가진다.
 
 2.1 도큐먼트
