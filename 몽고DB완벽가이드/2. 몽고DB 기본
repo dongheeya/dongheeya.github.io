@@ -127,5 +127,37 @@ Chaper2. 몽고 DB 기본
  $mongo server-1:30000/foo --quiet script1.js script2.js script3.js
  ( --quiet 옵션은 "Mongo DB shell version 4.2.0 을 보이지 않게 함)
  
-  
-  
+2.7.3. mongorc.js 만들기
+ * 자주 로드되는 스크립트를 .mongorc.js파일에 넣는다.
+ 
+ // .mongorc.js (위험한 셸 보조자를 제거)
+ db.dropDatabase = DB.prototype.dropDatabase = no;
+ // 컬렉션 삭제 방시
+ DBCollection.prototype.drop = no;
+ // 인덱스 삭제방지
+ DBCollection.prototype.dropIndex = no;
+ DBCollection.prototype.dropIndexs = no;
+ 
+2.7.4. 프롬프트 커스터마이징하기
+ prompt = function(){
+  return (new Date()) +">";
+ };
+ - 문자열을 반환한다.
+ - 예외를 잡는데 주의를 기울여야한다.
+ - 셸의 연결이 끊겼을때 쓰기에서의 오류를 감지해서 자동으로 다시 연결한다.
+
+2.7.5. 복잡한 변수 수정하기
+ > EDITOR="/usr/bin/emacs"
+ - 문자열을 반환한다.
+ - 예외를 잡는데 주의를 기울여야한다.
+ - 셸의 연결이 끊겼을때 쓰기에서의 오류를 감지해서 자동으로 다시 연결한다.
+ > var wap = db.books.findOne({title:"war and peace"});
+ > edit wap
+
+2.7.6. 불편한 컬렉션명
+ - 컬렉션명이 예약어가 아니거나 유효하지 않은 자바스크립트 속성명이 아니라면 db.collectionName구문으로 컬렉션을 항상 가져온다.
+ - ex) version이라는 컬렉션에 접근한다. & version이라는 메소드도 존재함
+  이때, db.version를 쓰면  메소드가 실행된다.
+  따라서 version이라는 컬렉션에 접근을 하기 위해서는 db.getCollection("version") 쓴다.
+
+
