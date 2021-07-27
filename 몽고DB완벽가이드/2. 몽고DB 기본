@@ -34,4 +34,98 @@ Chaper2. 몽고 DB 기본
  admin/local
  - admin 데이터베이스는 인증/권한 부여 역할을 함
  - local은 단일 서버에 대한 데이터 저장
- - 샤딩
+ 
+2.4 mongoDb시작
+ - 기본디렉토리 : /data/db 
+ - 27017 번 포트
+ - 중지 : ctrl + c
+
+2.5 몽고DB 클라이언트
+ - db [입력] ; 현재 할당된 데이터 베이스 확인
+ - use video ; 데이터 베이스 선택. 이후에 db는 video 를 해당함
+ - db.movies ; 데이터 베이스에 movies컬렉션을 반환
+ 
+2.5.3 CRUD (CREATE/READ/UPDATE/DELETE) 작업
+ 1) insertOne (컬렉션에 하나의 도큐먼트를 추가한다)
+  > movie ={ "title" :"Star wars","director":George Lucas","year": 1977}
+  > db.movies.insertOne(movie) ; 위에 정의한 movie 가 movies라는 컬렉션에 추가된다.
+   {
+    "_id" : OjectId("~~~")
+    ,"title" :"Star wars"
+    ,"director":George Lucas"
+    ,"year": 1977
+   }
+ 2) find/findOne
+  > db.movies.findOne() ; 해당 컬렉션에서 해당되는 하나의 도큐먼트를 읽음
+  > db.movies.find() ; 해당 컬렉션에서 해당되는 20개를 자동으로 출력
+ 3) updateOne
+  update movies
+  set reviews = ''
+  where title = "Star wars"
+  ;
+  
+  > db.movies.updateOne({title:"Star wars"},  // where 조건 - 수정할 도큐먼트를 찾는 기준
+      { $set : {reviews : [] }}               // set - 갱신작업 설명하는 부분 (없던 키를 명시하면, 신규적으로 생성됨)
+  );
+  {
+    "_id" : OjectId("~~~")
+    ,"title" :"Star wars"
+    ,"director":George Lucas"
+    ,"year": 1977
+    ,"reviews" : []
+   }
+  4) 삭제 deleteOne/deleteMany (영구 삭제)
+  > db.movies.deleteOne({title:"Star wars"}) // 해당하는 하나의 도큐먼트를 삭제
+  > db.movies.deleteMany({title:"Star wars"}) // 해당하는 모든 도큐먼트를 삭제
+  
+  
+2.6 데이터형 
+ 1) 기본 데이터형 ; null, boolean, 숫자, 문자열, 날짜, 정규표현식, 배열, 내장도큐먼트, 객체id 등 
+   - 날짜형 : 자바스트립트의 작동방식
+     EX) { "x" : new Date() }
+   - 배열 : {"things" : ["pie",3.14]} ; 서로 다른 데이터형을 포함한 배열도 가능
+   - 내장 도큐먼트 : [키/쌍]의 구조를 가짐 
+     EX) { "name" : "John Doe",
+           "address": { 
+             "street":"123 Park Street",
+             "city":"Seoul",
+             "state":"NY"
+           }
+         }
+2.6.5 _id 와 ObjectId
+  - 모든 도큐먼트는 "_id"를 가진다. Collection마다 "_id"값은 고유해야함
+    ; 자동 생성 
+  - "ObjectId"가 기본 
+  
+  * ObjectId : 12바이트 스토리지를 사용하며 24자리 16진수 문자열 표현이 가능.
+    - 4부분으로 구성
+    - 첫 4바이트 ;  타임스탬프 (즉, 대략적으로 입력 순서대로 정렬)
+    - 5바이트 ; 랜덤 값 -> 위의 9바이트는 여러 장비 + 프로세스에 걸쳐 유일성 보장
+    - 3바이트 ; 단순한 증분의 숫자 
+  
+2.7 몽고DB 셸 사용
+ - 다른 장비나 포트에 mongod를 연결하려면 셸을 시작할때 호스트명, 포트, 데이터베이스를 명시
+  $ mongo some-host:300000/myDB
+  MongoDB shell version: 4.2.0
+  connecting to :some-host:300000/myDB
+  -> db는 some-host:300000의 myDB를 참조
+  
+  $mongo --nodb
+  MongoDB shell version: 4.2.0
+  > conn = new Mongo("some-host:30000")
+  conection to some-host:3000
+  > db = conn.getDB("myDB")
+  myDB
+
+2.7.1 셸 활용 팁
+ > help
+ -> 내장된 셸의 도움말을 볼 수 있다.
+
+2.7.2 셸에서 스크립트 실행하기
+ $mongo script1.js script2.js script3.js
+ -> 순서대로 script1.js - script2.js - script3.js 를 실행하고 빠져나온다.
+ $mongo server-1:30000/foo --quiet script1.js script2.js script3.js
+ ( --quiet 옵션은 "Mongo DB shell version 4.2.0 을 보이지 않게 함)
+ 
+  
+  
