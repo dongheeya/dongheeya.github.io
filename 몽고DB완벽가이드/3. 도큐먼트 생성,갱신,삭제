@@ -1,0 +1,77 @@
+3.1 도큐먼트 삽입
+ - insertOne ; 한개의 도큐먼트 삽입
+ > db.movies.insertOne({"title":"Stand by Me"})
+ ; 도큐먼트에 "_id" 키가 자동추가 및 저장
+ 
+ - insertMany ; 대량 삽입
+ > db.moveis.insertMany([
+    {"title":"Stand by Me"},
+    {"title":"E.T"},
+    {"title":"Blade Runner"}
+   ], { ordered: false }  --  ordered 옵션
+   );
+   - 48메가바이트보다 큰 메세지를 허용 x
+   - 48메가바이트보다 큰 경우에는 일괄 삽입 여러 개로 분할
+   - ordered 옵션 true 인 경우에는 작성된 대로 삽입 (default)
+   - ordered 옵션 false 인 경우에는 MongoDb가 성능개선하려고 삽입 재배열
+   
+  > db.moveis.insertMany([
+    {"_id":0, "title":"Stand by Me"},
+    {"_id":1, "title":"E.T"},
+    {"_id":1, "title":"Blade Runner"} -- error
+   ]);
+   ; _id가 동일한 도큐먼트를 두 개 이상 삽입 x
+   ; error난 곳만 제외하고 insert됨
+   
+3.1.2 삽입 유효성 검사
+ - _id 필드가 존재하지 않으면 새로 추가
+ - 크기를 검사 (1개의 document < 16mb)
+ 
+3.2 도큐먼트 삭제
+ - deleteOne : 필터와 일치하는 첫 번째 도큐먼트를 삭제
+ > db.movies.deleteOne({"_id":4})
+  ; _id값이 컬렉션에서 고유하기 때문에 하나의 도큐먼트만 일치시킬 수 있는 필터를 사용.
+ 
+ - deleteMany : 필터와 일치하는 모든 도큐먼트를 삭제
+ > db.movies.deleteMany({"year":1984})
+  
+  * 한번 데이터가 지워지면 영원히 사라진다. 삭제를 취소하거나 지워진문서를 복구할 수 있는 방법은 없다.
+
+3.2.1 drop
+ - dropMany : 컬렉션의 모든 도큐먼트를 제거
+ > db.movies.drop() ; 전체 컬렉션을 삭제하려면 deleteMany보다 drop쓰는게 빠름.
+ 
+3.3 도큐먼트 갱신 
+ * 갱신 요청 두 개가 발생하면 서버에 먼저 도착한 요청이 적용된 후 다음 요청이 적용된다.
+ 
+3.3.1 도큐먼트 치환
+ - replaceOne ; 도큐먼트를 새로운것으로 완전 치환
+ {"_id" : ObjectId("~"),"name":"joe","age":65}
+ {"_id" : ObjectId("~"),"name":"joe","age":20}
+ {"_id" : ObjectId("~"),"name":"joe","age":49}
+ > db.people.replaceOne({"name":"joe}, joe); -- E11001 deplicate key on update
+  ; 도큐먼트가 이미 컬렉션에 있음에도 현재 joe 변수 내 모큐먼트를 치환하려고 시도
+  ; _id 값은 고유해야 하므로 갱신 실패
+ 
+ > db.people.replaceone({"_id": ObjectId("~")}, joe)
+  ; _id값이 컬렉션 기본 인덱스 기초를 형성
+  ; 필터에 _id값을 사용해도 효율적
+  
+3.3.2 갱신 연선자
+ - 특정 부분만 갱신 (키를 변경/추가/제거/ 배역과 내장 도큐먼트를 조작)
+ - $inc : {필드 : 숫자} 
+   ; 숫자 > 0 ; 양수만큼 증가
+   ; 숫자 < 0 ; 음수만큼 증가
+ - $set : {필드 : 값}  <-> $unset : {필드 : 값}
+   ; $set : 필드가 존재하지 않으면 새 필드가 생성
+   ; $unset : 해당 필드를 제거
+
+증가와 감소
+ - $inc : 이미 존재하는 키의 값을 변경하거나 새 키를 생성하는데 사용 ([숫자]만 가능)
+  * null,불리언,문자열로 나타낸 숫자와 같이 여러 언어에서 숫자로 자동 변환되는 데이터형의 값에는 사용할 수 없다.
+ > db.games.updateOne({"game":"pinball","user":"joe"}
+ , {$inc : {"score":10000});
+
+   
+             
+  
