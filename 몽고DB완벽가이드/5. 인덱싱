@@ -48,8 +48,25 @@
  step5. 승리한 인덱스는 차후 모양이 같은 쿼리에 사용하기 위해 캐시에 저장
  step6. 변경이 있을시에 캐시에서 삭제되며 쿼리 플랜 캐시는 명시적으로 지울수 있음. mogod프로세스를 다시 시작할때에도 삭제.
  
-5.1.4 복합 인덱스 사용
-
+5.1.4 복합 인덱스 사용 ( 단일키 인덱스보다 좀더 복잡 & 강력) * 동등필터 < 정렬 < 다중필터
+ > db.students.createIndex({"class_id":1})
+ > db.students.createIndex({"student_id" :1, "class_id":1})
+ > db.students.find({"student_id" :{"$gt":500000}, "class_id":54}).sort("student_id":1}).explain("executionStats")
+  ; ID가 5000000보다 큰 모든 레코드에서 검색ID가 54인 클래스에 대한 레코드로 제한 & student_id기준으로 오름차순
+  -> 이때 "stage" : "FETCH"가 되면 인덱스를 탄것. <-> "SORT"이라면 인메모리 정렬을 함
+  ; 해당 쿼리는 선정된 결과를 사용하기 위해 먼저 전체 도큐먼트를 반환한후 정렬해야하였음.
+  
+  따라서 hint 메서드를 사용하여 모양이나 이름을 지정하여 사용할 인덱스를 지정
+ > db.students.find({"student_id" :{"$gt":500000}, "class_id":54}).sort("student_id":1}).hint({class_id:1}).explain("executionStats")
+  
+  하지만, hint 메서드의 사용없이 totalKeyExamined와 nReturned를 유사하게 가져가는것이 효율적!
+ > db.students.createIndex({"class_id":1, "student_id" :1}) 
+ * 일반적으로 동등 필터를 사용할 필드가 다중값 필터를 사용하는 필드보다 앞에 오도록 설계*
+ * 정렬 구성 요소는 동등필터 뒤 다중필터 앞에 위치해야 인메모리를 이용한 정렬 피할수 있음*
+  
+ - 복합 정렬 : 키 방향 선택하기 (서로 다른 방향으로 최적화)
+ ex) {"age":1, "username":-1}
+  
  
  
  
