@@ -16,11 +16,247 @@
 -----------------------------------------------------------------
 
 아이템 1. 생성자 대신 정적 팩터리 메서드를 고려하라
- - 클래스는 생성자와 별도로 정적 팩터리 메소드(static factory method)를 제공할 수 있다.
+ - 클래스는 생성자와 별도로 "정적 팩터리 메소드(static factory method)"를 제공할 수 있다.
  
  * 장점
   - 장점 1) 이름을 가질 수 있다. ; 이름으로 반환할 객체의 특성을 쉽게 묘사 가능
     ex) BigInterger(int, int, Random) < BigInteger.probablePrime (값이 소수인 BigInteger을 반환한다는 의미가 더 잘 설명됨)
   - 장점 2) 호출될 때마다 인스턴스를 새로 생성하지는 않아도 된다.
     불변 클래스(객체가 가지는 값마다 새로운 인스턴스가 필요) 같은 경우 인스턴스를 미리 만들어 놓거나 새로 생성한 인스턴스를 캐싱하여 재활용하고 있다.
+    이런 방식들을 다시 말해 인스턴스 통제 방식이라고 할 수 있다. 인스턴스 통제를 하는 이유는 클래스를 싱글톤 으로 만들 수 있고, 
+    불변 클래스에서 동치인 인스턴스가 단 하나 뿐임을 보장(a == b일 때만 a.equals(b)가 성립) 할 수 있으며, 인스턴스화 불가로 만들 수 있다.
+  - 장점 3) 반환 타입의 하위 타입 객체를 반환할 수 있는 능력이 있다.
+  - 장점 4) 입력 매개변수에 따라 매번 다른 클래스의 객체를 반환할 수 있다.
+    클라이언트는 하위 클래스의 존재를 알 필요 없이 그저 반환해주는 클래스에게 메시지를 전송해 클래스의 반환 값만 받아 클라이언트가 설계한 로직으로 구성만 하면 되는 것이다.
+  - 장점 5) 정적 팩터리 메서드를 작성하는 시점에는 반환할 객체의 클래스가 존재하지 않아도 된다.    
+    인터페이스나 클래스의 정적 팩터리 메서드가 만들어지는 시점에서 반환 타입의 클래스가 존재하지 않아도 된다는 것이다.
+ * 단점
+  - 단점 1) 상속을 하려면 public이나 protected 생성자가 필요하니 정적 팩터리 메서드만 제공하면 하위 클래스를 만들 수 없다.
+  - 단점 2) 정적 팩터리 메서드는 프로그래머가 찾기 어렵다.
+    생성자 처럼 API 설명에 명확히 드러나있지 않으므로 프로그래머는 정적 팩터리 메서드를 활용하여 클래스를 인스턴스화 할 방법을 알아내야 한다.
+    
+ * 정적 팩터리 메서드에서 흔히 사용되는 명명 방식
+  - from : 매개 변수를 하나 받아와서 해당 타입의 인스턴스를 반환하는 형변환 메소드
+    ex) Date d = Date.from(instant);
+  - of : 여러 매개변수를 받아 적합한 타입의 인스턴스를 반환하는 집계 메서드
+    ex) Set<Rank> faceCards = EnumSet.of(JACK, QUEEN, KING);
+  - valueOf : from과 of의 더 자세한 버전
+    ex) BingInteger prime = BigInteger.valueOf(Integer.MAX_VALUE);
+  - instance / getInstance : (매개변수를 받는다면) 매개변수로 명시한 인스턴스를 반환하지만, 같은 인스턴스임을 보장하지는 않는다.
+    ex) StackWalker luke = StackWalker.getInstance(options);
+  - create / newInstance : instance / getInstance와 같지만, 매번 새로운 인스턴스를 생성해 반환함을 보장한다.
+    ex) Object newArray = Array.newInstance(calssObject, arrayLen);
+  - getType : getInstance와 같으나, 생성할 클래스가 아닌 다른 클래스에 팩터리 메서드를 정의할 때 쓴다. "Type"은 팩터리 메서드가 반환할 객체의 타입이다.
+    ex) FileStore fs = Files.getFileStore(path);
+  - newType : newInstance와 같으나, 생성할 클래스가 아닌 다른 클래스에 팩터리 메서드를 정의할 때 쓴다. "Type"은 팩터리 메서드가 반환할 객체의 타입이다.
+    ex) BufferedReader br = Files.newBufferedReader(path);
+  - type : getType과 newType의 간결한 버전
+    ex) List<Complaint> litany = Collections.list(legacyLintany);  
+    
+-----------------------------------------------------------------
+아이템 2. 생성자에 매개변수가 많다면 빌더를 고려하라.
+ - 점층적 생성자 패턴도 쓸 수 있지만, 매개변수 개수가 많아지면 클라이언트 코드를 적성하거나 읽기 어렵다.
  
+ 대안1) 자바빈즈패턴을 사용 
+  -> 단점 ) 객체 하나를 만들려면 매서드를 여러개 호출해야 하고, 객체가 완전히 생성되기 전까지는 일관성이 무너진 상태가 된다
+ 대안2) 빌더 패턴 (Builder Pattern)
+  ; 필수 매개변수만 생성자로 호출해 빌더 객체를 얻는다.
+  ; 명명된 선택적 매개변수를 흉내낸 것
+  
+-----------------------------------------------------------------
+아이템 3. private 생성자나 열거 타입으로 싱글턴임을 보증하라.
+ - Singleton이란 인스턴스를 오직 하나만 생성할 수 있는 클래스 <-> 사용하는 클라이언트를 테스트하기가 어려움
+ - 싱글턴 만드는 방식 
+ 1) 생성자를 모두 private로 감춰두고, 유일한 인스턴스에 접근할 수 있는 수단으로 public static 멤버를 하나 둔다.
+  private static final Elvis INSTANCE = new Elvis(); -> Elvis.INSTANCE를 초기화할 때 딱 한번만 호출된다.
+  -> 전체 시스템에서 하나뿐임이 보장
+  단,AccessibleObject.setAccessible을 사용해 private생성자를 호출하면 여러개 생성 가능
+  
+ 2) public static 멤버로 제공
+  public static Elvis getInstance() { return INSTANCE; }
+ 3) 열거 타임을 선언 
+  단, 만들려는 싱글턴이 Enum 외의 클래스를 상속해야 한다면 이 방법은 사용할 수 없다.
+
+-----------------------------------------------------------------
+아이템 4. 인스턴스화를 막으려거든 private 생성자를 사용하라.
+ - 정적 메서드와 정적 필드만을 담은 클래스를 만들고 싶을때가 있다.
+ -> java.lang.Math , java.util.Arrays, java.util.Collections
+ 
+ - 생성자를 명시하지 않으면 컴파일러가 자동으로 기본 생성자를 만들어주고, (public)
+ 사용자는 이 생성자가 자동 생성된 것인지 구분하기 힘들다.
+ --> 따라서 명시된 private생성자를 추가함으로써 인서튼스화를 막는다.
+ 
+ - private 이므로 클래스 바깥에서는 접근할 수 없게됨
+ - 상속을 불가능하게 하는 효과가 있다.
+ 
+-----------------------------------------------------------------
+아이템 5. 자원을 직접 명시하지 말고 의존 객체 주입을 사용하라.
+ - 사용하는 자원에 따라 동작이 달라지는 클래스에서는 정적 유틸리티 클래스나 싱글턴 방식은 적합하지 않다.
+[핵심 정리]
+클래스가 내부적으로 하나 이상의 자원에 의존하고, 그 자원이 클래스 동작에 영향을 준다면 싱글턴과 정적 유틸리티 클래스는 사용하지 말자.
+이 자원들을 클래스가 직접 만들게 해서도 안된다.
+필요한 자원을 (혹은 그 자원을 만들어주는 팩터리를) 생성자에 (혹은 정적 팩터리나 빌더에) 넘겨주자. 의존
+객체 주입이라 하는 이 기법은 클래스의 유연성, 재사용성, 테스트 용이성을 기막히게 개선해준다.
+
+-----------------------------------------------------------------
+아이템 6. 불필요한 객체 생성을 피하라
+ - 똑같은 기능의 객체를 매번 생성하기보다는 개겣 하나를 재사용하는 편이 나을 때가 많다.
+ - 재사용은 빠르고 세련되다.
+ 
+ String s= new String("bikini"); -> 실행될때마다 String인스턴스를 새로 만든다.
+ String s = "bikini"; -> 이 코드는 하나의 String 인스턴스를 사용하여 계속 같은 객체를 재사용한다.
+ 
+ 생성자 대신 정적 팩터리 매서드를 제공하는 불변 클래스에서는 정적 팩터리 메서드를 사용해 불필요한 객체 생성을 피할 수 있다.
+ ex) Boolean(String) 생성자 대신 Boolean.valueOf(String) ; 팩터리 메서드는 호출때마다 새로운 객체 생성 x // 재사용 o\
+ 
+ Pattern인스턴스를 클래스 초기화 과정에서 직접 생성해 캐싱해두고 나중에 isRomanNumeral 메서드가 호출될때마다 재사용하는 것이 좋음.
+ 
+ public class RomanNumerals {
+    private static final Pattern ROMAN = Pattern.compile("^(?=.)M*(C[MD]|D?C{0,3})(X[CL]|L?X{0,3})(I[XV]|V?I{0,3})");
+
+    static boolean isRomanNumeral(String s) {
+        return ROMAN.matcher(s).matches();
+    }
+}
+
+* 오토박싱(auto boxing)
+ - 오토박싱은 프로그래머가 기본 타입과 박싱된 기본 타입을 섞어 쓸 때 자동으로 상호 변환해주는 기술
+ - 기본 타입과 그에 대응하는 박싱된 기본 타입의 구분을 흐려주지만, 완전히 없애주는 것은 아니다.
+ - 의미상으로는 별다를 것 없지만 성능에서는 그렇지 않다.
+ 
+ public class Sum {
+    private static long sum() {
+        Long sum = 0L;
+        for (long i = 0; i <= Integer.MAX_VALUE; i++) {
+            sum += i;
+        }
+        return sum;
+    }
+}
+sum 변수를 long이 아닌 Long으로 선언해서 불필요한 Long 인스턴스가 약 231개나 만들어진다(long 타입인 i가 Long 타입인 sum에 더해질 때마다).
+박싱된 기본 타입보다는 기본 타입을 사용하고, 의도치 않은 오토박싱이 숨어들지 않도록 주의하자.
+
+
+-----------------------------------------------------------------
+아이템 7. 다 쓴 객체 참조를 해제하라.
+ - java는 c++,c처럼 직접 카비지 컬렉터를 갖춘 언어이고 알아서 회수해간다고 생각한다.
+ - 그렇지만, 메모리 관리에 신경쓰지 말아야되는 것은 아니다.
+ 
+ 1) stack
+ public class Stack {
+    private Obejct[] elements;
+    private int size = 0;
+    private static final int DEFAULT_INITAL_CAPACITY = 16;
+
+    public Stack() {
+        elements = new Object[DEFAULT_INITAL_CAPACITY];
+    }
+
+    public void push(Object e) {
+        ensureCapacity();
+        elements[size++];
+    }
+
+    public Object pop() {
+        if (size == 0) {
+            throw new EmptyStackException();
+        }
+        return elements[--size];
+    }
+
+    private void ensureCapacity() {
+        if (elements.length == size) {
+            elements = Arrays.copyOf(elements, 2 * size + 1);
+        }
+}
+ 
+ - 이 스택을 사용하는 프로제금이 오래 실행하다보면 가비지 컬렉션 활동과 메모리 사용량이 늘어나 성능이 저하된다.
+ - OutOfMemoryError일으켜 프로그램이 종료되기도 한다.
+ 
+ - -> 스택이 커졋다가 줄어들었을 때 스택에서 꺼내진 객체들은 가비지 컬렉터가 회수하지 않는다.
+ - stack은 자기 메모리를 직접 관리하므로 해제되지 않는다.
+ - 해결법 ) * 해당 참조를 다 썼을때 null처리하면된다.
+ 
+ 2) 캐시
+ - 캐시 역시 메모리 누수를 일으키는 주범이다.
+ 
+   - WeakHashMap :약한 참조 해시맵으로 WeakReference의 특성을 이용해 Key에 해당하는 객체가 더이상 사용되지 않는다면 해당 객체를 자동으로 GC에 넣는다
+   - LinkedHashMap : 캐시에 새로운 항목이 추가될 때 removeEldestEntry 메소드를 실행하는데 이게 가장 오래된 캐시를 제거하는 것이다.
+   
+ 3) listener 혹은 callback : WeakHashMap
+  - 클라이언트가 콜백을 등록만하고 명화하게 해지하지않는다면 계속 쌓여갈 것이다.
+  
+  (http://blog.breakingthat.com/2018/08/26/java-collection-map-weakhashmap/)
+ 
+-----------------------------------------------------------------
+아이템 8. finalizer와 cleaner사용을 피하라.
+ - finalizer는 예측할 수 없고, 상황에 따라 위험할 수 있어 일반적으로 불필요하다. (deprecated api로 지정)
+ - cleaner은 finalizer보다는 덜 위험하지만, 여전히 예측할 수 없고, 느리고, 불필요하다.
+ - 즉시 수행된다는 보장이 없다. 제때 실행되어야 하는 작업은 절대 할 수 없다.
+ - 우선순위가 낮아서 실행될 기회를 제대로 얻지 못할 방법뿐이다.
+ - 즉각 수행되리라는 보장이 없다.
+ 
+ -> 언제 쓸까?
+  1) 자원의 소유자가 close메서드를 호출하지 않을 것에 대비한 보장 
+  2) native peer와 연결된 객체에서 사용 
+ 
+ * AutoCloseable : 클라이언트에서 인스턴스를 다 쓰고 나면 close메서드를 호출하면된다.
+ - 이때 예외가 발생하면 제대로 종료되도록 try-with-resources를 사용한다.
+ - close 메서드 호출여부를 필드로 저장하자. 그리고 객체 사용 시 필드를 검사해서 이미 닫혔으면 Exception을 던지도록 구현하자.
+ 
+-----------------------------------------------------------------
+아이템 9. try-finally 보다는 try-with-resources를 사용하라.
+ close메서드를 호출해 직접 닫아줘야 하는 자원이 많다.
+ ex) InputStream, OutputStream, java.sql.Connection 
+ 
+ * try-finally
+전통적으로 자원을 사용한 후 닫기 위한 방법으로 아래 예제코드와 같은 try-finally를 많이 사용했습니다.
+
+static String firstLineOfFile(String path) throws IOException {
+	BufferedReader br = new BufferedReader(new FileReader(path));
+    try {
+    	return br.readLine(); -----------> 만약에 여기에서 에러가 생기면 예외를 던지고
+    } finally {
+    	br.close();
+    }
+}
+ 
+
+기존에 자주 사용하던 방법이라 나쁘지 않지만 자원의 수가 늘어난다면 문제가 생긴다.
+
+static void copy(String src, String dst) throws IOException {
+    InputStream in = new FileInputStream(src);
+    try {
+    	OutputStream out = new FileOutputStream(dst);
+        try {
+            byte[] buf = new byte[BUFFER_SIZE];
+            int n;
+            while ((n = in.read(buf) >= 0)    
+            	out.write(buf, 0, n); 
+        } finally {
+        	out.close();
+        }
+    } finally {
+    	in.close();          -----------> 같은 이유로 에러가 생긴다면 -> 두번째 에러가 첫번째 에러를 집어삼켜 디버깅이 어렵게된다.
+    }
+}
+ 
+* try-with-resources try-finally에서 발생할 수 있는 문제들을 모두 해결해준다. (java7)
+단순히 void를 반환하는 close 메서드 하나만 있는 인터페이스이다. 
+
+static String firstLineOfFile(String path) thorws IOException {
+    try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+    	return br.readLine();
+    }
+}
+static void copy(String src, String dst) throws IOException {
+    try (InputStream in = new FileInputStream(src);
+    	 OutputStream out = new FileOutputStream(dst)) {
+    	byte[] buf = new byte[BUFFER_SIZE];
+        int n;
+        while ((n = in.read(buf)) >= 0)
+        	out.write(buf, 0, n);
+    }
+}
+
+
