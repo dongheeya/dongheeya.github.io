@@ -67,18 +67,11 @@
  "$funding_rounds.investments.financial_org.permalink" -> 이부분은 배열이므로 배열로 결과가 나타난다.
  
 즉, 
- > {
-		"name" : "Facebook",
-		"ipo" : 2012,
-		"valuation" : NumberLong("104000000000"),
-		"funders" : [
-				[
-						"greylock",
-						"meritech-capital-partners",
-						"founders-fund",
-						"sv-angel",
-				]		 //-> 이부분은 배열이므로 배열로 결과가 나타난다.
-		]}
+ > {"name" : "Facebook",
+    "ipo" : 2012,
+    "valuation" : NumberLong("104000000000"),
+    "funders" : ["greylock","meritech-capital-partners","founders-fund","sv-angel"]		 //-> 이부분은 배열이므로 배열로 결과가 나타난다.
+   }
 
 7.5 $unwind 
  - 집계 파이프라인에서 배일 필드로 작업할 때는 종종 하나 이상의 전개 단계를 포함한다.
