@@ -1,0 +1,102 @@
+7. 집계 프레임워크
+
+* 집계 파이프라인은 배시와 같은 리눅스 셸 파이프라인과 매우 유사한 개념
+ 단계마다 특정 작업을 수행
+* 각 단계는 특정한 형태의 도큐먼트를 입력받고 특정 출력을 생성하는데, 출력은 도큐먼트 스트림이다.
+* 각 단계는 knobs 또는 tunables셋을 제공
+
+요약하자면,
+ * 파이프라인은 단계로 구성되며 각 단계는 입력에 서로 다른 데이터 처리 작업을 수행하고, 출력으로 도큐먼트를 생성해 다음 단계로 전달.
+ * 처리 작업 끝에서 생성한 출력은 에플리케이션에서 작업하는 데 사용하거나, 컬렉션에 보내 나중에 사용.
+ 
+7.2 단계 시작하기 : 익숙한 작업들
+ - 집계 파이프라인은 : 일치(match), 선출(projecction), 정렬(sort), 건너뛰기(skip), 제한(limit)단계로 구성
+ * aggregate : 집계 쿼리를 실행할 때 호출하는 메서드
+ 
+ 1) 일치작업(match) ; 컬렉션에 대해 필터링하고 결과 도큐먼트를 한 번에 하나씩 선출 단계로 전달
+ ex) 2004년에 설립된 회사를 모두 찾는 간단한 필터 
+  > db.companies.aggregate([ {$match : {founded_year : 2004 }},])
+  = db.companies.find({founded_year : 2004})
+ 
+ 2) 선출(projecction) ; 선출은 작업을 수행하고 도큐먼트 모양을 변경한 후 출력을 파이프라인에서 다시 전달
+ ex) 2004년에 설립된 회사를 모두 찾음 & 결과는 _id 제외, founded_year포함
+  > db.companies.aggregate([ {$match : {founded_year : 2004 }},
+    { $project : { 
+      _id : 0,
+      name : 1,
+      founded_year : 1
+    }}
+    ])
+ ex) 2004년에 설립된 회사를 모두 찾음 & 결과는 _id 제외, name포함 & 결과셋을 5개로 제한
+  > db.companies.aggregate([ {$match : {founded_year : 2004 }},
+    { $limit : 5 },                       -----------------------> 파이프라인의 효율성을 위해 항상 선출전에 제한을 두자!
+    { $project : { _id : 0,name : 1 }}
+    ])
+ 
+ ex) 2004년에 설립된 회사를 모두 찾음 & 결과는 _id 제외, name포함 & 결과셋을 5개로 제한 & 순서는 이름으로 오름차순 & 처음 10개 건너뜀
+  > db.companies.aggregate([ {$match : {founded_year : 2004 }},       -> 필터
+    { $sort : { name : 1 }},           -> 순서
+    { $skip : 10 },           -> 순서
+    { $limit : 5},   -> 제한
+    { $project : { _id : 0,name : 1 }} -> 결과물
+    ])
+ 
+ 7.3 표현식 
+  불리언 표현식 : AND,OR,NOT
+  집합 표현식 : 배열을 집합으로 사용
+  비교 표현식 : 다양한 유형의 범위 필터를 사용
+  산술 표현식 : 천장, 바닥, 자연로그, 로그를 게산
+  문자열 표현식 : 문자열 표현식을 사용하면 연결, 하위문자열 검색, 대소문자 및 텍스트 검색
+  배열 표현식 : 배열 요소를 필터링, 분할, 특정 배열에서 값의 범위 가져오는 등
+  가변적 표현식 : 리터럴, 날짜 값 구문 분석, 조건식
+  누산기 : 합계, 기술 통계 및 기타 여러 유형의 값 계산 
+  
+7.4 $project : $match 에 포함된 집단 도큐먼트를 가져와라.(?) 인거같음.
+ > db.companies.aggregate([
+  { $match : {"funding_rounds.investments.finalcial_org.parmalink":"greylock"}}.
+  { $project : {
+   _id : 0
+   , name : 1
+   , ipo: "$ipo.pub_year"
+   , valuation: "$ipo.valuation_amount"
+   , funders : "$funding_rounds.investments.financial_org.permalink"
+  }}
+ ]).pretty()
+; companies  컬렉션 내에서 "funding_rounds.investments.finalcial_org.parmalink":"greylock" 인 도큐먼트를 일단 가져와서
+ $project 에 나열된 것처럼 결과물을 내놓아라.
+ "$funding_rounds.investments.financial_org.permalink" -> 이부분은 배열이므로 배열로 결과가 나타난다.
+ 
+즉, 
+ > {
+		"name" : "Facebook",
+		"ipo" : 2012,
+		"valuation" : NumberLong("104000000000"),
+		"funders" : [
+				[
+						"greylock",
+						"meritech-capital-partners",
+						"founders-fund",
+						"sv-angel",
+				]		 //-> 이부분은 배열이므로 배열로 결과가 나타난다.
+		]}
+
+7.5 $unwind 
+ - 집계 파이프라인에서 배일 필드로 작업할 때는 종종 하나 이상의 전개 단계를 포함한다.
+ - 필드는 배열값이 아닌 단일 값을 포함하며, 입력 도큐먼트 배열에 있던 각 요소가 값이 되어 전개 단계에서 쪼개진다.
+ ex) db.companies.aggregate([
+  { $match : {"funding_rounds.investments.finalcial_org.parmalink":"greylock"}}.
+  { $unwind : "$funding_rounds"}, -> 결과가 배열로 나오면 단일 도큐먼트로 바꾼다.
+  { $project : {
+   _id : 0
+   , name : 1
+   , ipo: "$ipo.pub_year"
+   , valuation: "$ipo.valuation_amount"
+   , funders : "$funding_rounds.investments.financial_org.permalink"
+  }}
+ ]).pretty()
+ 
+  > {"name" : "Facebook","ipo" : 2012, "valuation" : NumberLong("104000000000"),"funders" : "greylock"}
+  {"name" : "Facebook","ipo" : 2012, "valuation" : NumberLong("104000000000"),"funders" : 	"meritech-capital-partners"}
+  {"name" : "Facebook","ipo" : 2012, "valuation" : NumberLong("104000000000"),"funders" :"founders-fund"}
+  {"name" : "Facebook","ipo" : 2012, "valuation" : NumberLong("104000000000"),"funders" :"sv-angel"}
+  
