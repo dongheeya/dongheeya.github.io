@@ -93,3 +93,19 @@
   {"name" : "Facebook","ipo" : 2012, "valuation" : NumberLong("104000000000"),"funders" :"founders-fund"}
   {"name" : "Facebook","ipo" : 2012, "valuation" : NumberLong("104000000000"),"funders" :"sv-angel"}
   
+7.7 누산기
+ - 특정 필드의 모든 값 합산 (sum)
+ - 평균 계산(avg)
+ - push : 도큐먼트가 파이프라인 단계를 통과할 때 배열에 값을 푸쉬 ( 중복값 포함x)
+7.7.1 선출 단계에서 누산기 사용
+ ex) funding_founds 필드를 포함하면서 funding_rounds배열이 비어있지 않는 도큐먼트를 필터링
+  > db.companies.aggreate([ 
+   { $match : {"funding_rounds" : { $exists : true, $ne: [] }}},
+   { $project : {_id : 0, name:1, largest_round : {$max : "$funding_rounds.raised_amount}}}]) --> 배열에 포함된 도큐먼트에 도달하고 출력 도큐먼트에 최댓값을 선출
+   
+7.8 그룹화 소개 ( ~= sql 의 group by )
+ - 집계한 값에 대한 평균 계산과 같은 집계 작업을 수행할 수 있다.
+ > db.companies.aggreate([ 
+   { $group : { _id: {founded_year : "$funded_year"} -> 기준을 설립연도로 잡음
+   ...............])
+ 
