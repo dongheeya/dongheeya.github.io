@@ -1,0 +1,74 @@
+아이템 11. equals를 재정의하려거든 hashCode도 재정의하라.
+ ; equals를 재정의한 클래스 모두에서 hashCode도 재정의해야한다. 그렇지 않으면 HashMap/HashSet과 같은 컬렉션의 원소를 사용할 때 문제가 발생
+ 
+ [규약]
+  1. equals비교에 사용되는 정보가 변경되지 않았다면, 애플리케이션이 실행되는 동안 그 객체의 hashCode 메서드는 몇번을 호출하여도 같은 값을 반환해야한다.
+  2. ★ equals(Object)가 두 객체를 같다고 판단했다면, 두 객체의 hashCode는 똑같은 값을 반환해야한다.
+  3. equals(Object)가 두 객체를 다르다고 판단하여도, 두 객체의 hashCode가 서로 다른값을 반환할 필요는 없다. 
+  (but, 다른 객체에 대하여 다른 값을 반환하여 성능이 좋다.)
+  
+  hashCode 재정의를 잘못하게 된다면 문제가 되는 조항은 2번이다.
+  즉, 논리적으로 같은 객체는 같은 해시코드를 반환해야하지만, equals는 물리적으로 같은 객체를 논리적으로 같다고 할 수 있다.
+  하지만, Object의 기본 hashCode 메소드는 이 둘을 전혀 다르다고 판단하여 규약과 달리 서로 다른 값을 반환한다.
+  
+ex) Map<PhoneNumber, String> m = new HashMap<>();
+    m.put(new PhoneNumber(707,867,5309,"제니"));
+    m.get(new PhoneNumber(707,867,5309); 
+    -> 결과는 "제니" (x), null (o) -> 두개의 다른 인스턴스를 반환하였기 때문에 hashCode를 재정의하지 않으면, 두개의 인스턴스가 다른 hashCode를 반환하기 떄문!
+    또한, HashMap은 해시코드가 다른 엔트리끼리는 동치성 비교 조차 안하도록 최적화되어있기 때문!
+    
+  좋은 해시 함수라면 서로 다른 인스턴스에 다른 해시코드를 반환!
+ex) 
+@Override public int hashCode(){
+  int result = Short.hashCode(areaCode);
+  result = 31 * result + Short.hashCode(prefix);
+  result = 31 * result + Short.hashCode(lineNum);
+  return result;
+} -> 31은 홀수이면서 소수이므로 사용하기 좋음!
+
+ 해시의 키로 사용되지 않는 경우라면 hashCode가 처음 불릴 때 계산하는 지연 초기화 전략도 좋다!
+ex) // lazy initalization
+ private int hashCode; // 자동으로 0으로 초기화
+ @Override public int hashCode(){
+  int result = hashCode;
+  if(result == 0){
+    result = Short.hashCode(areaCode);
+    result = 31 * result + Short.hashCode(prefix);
+    result = 31 * result + Short.hashCode(lineNum);
+    haxhCode = result;    
+  }
+  return result;
+} 
+ 
+  # 주의 : hashCode가 반환하는 값의 생성규칙을 api사용자에게 자세히 공표하지 말자. 그래야 클라이언트가 이 값에 의지하지 않게되고, 추후에
+  계산 방식을 바꿀 수 있다.
+
+------------------------------------------------------------------------------------------
+아이템 12. toString을 항상 재정의하라
+
+ * toString을 잘 구현한 클래스는 사용하기에 훨씬 즐겁고, 그 클래스를 사용한 시스템은 디버깅이 쉽다.
+ -> toString메서드는 객체를println, printf 등의 구문을 넘길떄 혹은 디버거가 객체를 출력할 때 자동으로 불린다. 
+ 즉, 직접 사용자가 호출하지 않더라도 어딘가에서 쓰일것이다.
+
+ * toString을 제대로 정의하지 않으면 쓸모없는 메세지만 로그에 남을 것이다.
+ PhoneNumber용 toString을 제대로 재정의헀다면 다음 코드만으로 문제를 진단하기에 충분한 메세지를 남길 수 있다.
+ ex) {Jenny=PhoneNumber@abcdbe} 보다는 {Jenny=707-867-5309} 충분한 메세지가 될테니까!!
+ 
+ * toString을 구현할 때면 반환값의 포맷을 문서화할지 정해야한다. 하지만, 포맷을 한번 명시하고 그 클래스가 많이쓰인다면 평생 그 포맷에 얽매이게 된다.
+ 그래서 미래에 그 포멧을 개선할 수 없는 단점이 생긴다.
+ 
+ * 따라서, 모캣 명시여부와 상관없이 toString이 반환한 값에 포함된 정보를 얻어올수 있는 api제공하는 것이 좋다. 그러면 자동생성된 아무것도 알려주지 않는
+ toString보다는 훨씬 유용하다.
+ 
+
+
+
+
+
+
+
+
+
+
+
+ 
