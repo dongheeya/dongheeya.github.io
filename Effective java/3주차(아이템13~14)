@@ -1,0 +1,174 @@
+아이템13. clone재정의는 주의해서 진행하라.
+----------------------------------------------------------------------------------------------------------------------------------------------
+ tip1)얕은 복사 vs 깊은 복사 
+
+ ▶ 얕은복사 : 참조형에서 주소를 복사해서 대입  // 주소를 주는것
+  얕은복사의 문제점 대입된 쪽의 변경이 대입하는 쪽의 데이터에도 변경을 가한다.
+  (어느 한쪽의 가리키고 있는 곳의 데이터를 변경하면 다른쪽도 영향을 받는다. 멀티스레드 프로그램이 네트워크 프로그램에서 문제 발생가능성이 있다)
+  (call by reference)
+
+ ▶ 깊은복사 : 참조형에서 주소가 가리키는 내용을 복사해서 대입 //내용을 주는것
+  value 타입의 데이터는 다른 기억장소에 대입될 때 실제 저장된 값이 복사가 되기 때문에 다른 기억장소에 대입을 했을 때 
+  복사본의 변화가 원본에 영향을 주지 않지만 참조형은 그냥 대입을 하면 주소가 복사되서 복사본의 변화가 원본에 영향을 주게 됩니다.
+  이러한 경우를 방지하고자 하면 참조형을 다른 참조형 변수에 바로 대입하지 않고 내부 [내용]을 복제해서 대입해 주어야 합니다
+  - 위의 경우를 깊은 복사라고 하며 Cloneable 인터페이스의 clone 메서드를 재정의해서 수행합니다.
+  ([출처] <자바>java.lang.Object 클래스, 얕은복사&깊은복사|작성자 Vanillasea)
+
+tip2)불변 class vs 가변 class
+ -[불변객체]는 재할당은 가능하지만, 한번 할당하면 내부 데이터를 변경할 수 없는 객체 (ex. String, Boolean, Integer, Float, Long)
+  즉, 객체에 값을 할당하면 내부 데이터를 변경시킬 수 없다는 것입니다. 대표적인 예로 String, Integer, Boolean 등이 있습니다.
+  String은 String str="a", str="ab" 이런 식으로 사용하기 때문에 값이 변경한다고 생각하여 불변객체가 아닌 것으로 착각하기 쉽습니다.
+  하지만 이것은 str가 처음에 참조하고 있는 "a"값이 "b"로 변경되는 것이 아니라 "b"라는 새로운 객체를 만들고 그 객체를 str이 참조하게 하는 것입니다.
+ -[가변객체] ex) StringBuffer
+  한번 생성된 주소지에 값을 수정해서 사용 (append)
+ 
+  (출처 : https://sup2is.github.io/2020/01/29/java-immutable-object-with-string.html)
+----------------------------------------------------------------------------------------------------------------------------------------------
+ - Cloneable은 Object을 return해준다.
+ - protected메서드이다. 
+ - Cloneable을 implements하고 clone호출하면 그 객체의 필드들을 하나하나 복사한 객체를 반환 (아래 예시 참조)
+ 
+ [clone 메서드의 일반 규약]
+  - 객체의 복사본을 생성해 반환한다.
+  - x.clone() != x (참)
+  - x.clone().getClass() == x.getClass() (참)
+  다음은 일반적으로 참인 경우다.
+  - x.clone().equals(x)
+  *관례상, super.clone()을 호출해야 얻을 수 있다.
+  *관례상, 반환된 객체와 원복 객체는 독립적이다. 
+  
+  하지만, 클래스 B가 클래스 A를 상속할때, 하위 클래스인 B의 clone은 B 타입 객체를 반환해야하지만,
+  super.clone을 연쇄적으로 호출하도록 구현한다면 clone이 처음 호출된 상위 클래스의 객체가 만들어진다.
+  
+ [동작 방식]
+ - super.clone을 호출한다. -> 원본의 원벽한 복제본이 된다.
+ 따라서 클래스에 정의된 모든 필드는 원본 필드와 똑같은 값을 가진다.
+ 
+ ex) 코드 13-1
+ @Override public PhoneNumber clone(){
+  try{ 
+    return (PhoneNumber) super.clone(); -- Clonealbe은 Object를 반환하므로 PhoneNumber으로 반환하도록 명시 필요.
+  }catch(CloneNotSupportedException e){
+    throw new AssertionError(); //일어날 수 없는 일이다.
+  } 
+ }
+ 
+ if) [가변 객체]를 참조한다면?
+ public class Stack implements Cloneable {
+
+	private Object[] elements;  // 만약에 final이었다면, 다음과 같은 방식은 작동하지 않는다. final 에서는 새로운 값을 할당할 수 없기 때문이다.
+	private int size = 0;
+	private static final int DEFAULT_INITIAL_CAPACITY = 16;
+	
+	public Stack() {
+		this.elements = new Object[DEFAULT_INITIAL_CAPACITY];
+	}
+  
+	// 원소를 위한 공간을 적어도 하나 이상 확보한다.
+	private void ensureCapacity() {
+		if(elements.length == size) {
+			elements = Arrays.copyOf(elements, 2 * size +1);
+		}
+	}
+	public void push(Object e) {
+		ensureCapacity();
+		elements[size++] = e;
+	}
+  
+  @Override public Stack clone() {
+		try {
+			Stack result = (Stack) super.clone();
+			result.elements = elements.clone();  //Object의 주소는 다르지만 Object안에 담겨있는 객체들의 레퍼런스는 같음
+			return result;
+		}catch(CloneNotSupportedException e) {
+			throw new AssertionError();
+		}
+	
+	public Object pop() {
+        if (size == 0)
+            throw new EmptyStackException();
+        Object result = elements[--size];
+        elements[size] = null;  //다 쓴 참조 해제
+        return result;
+    }
+	}
+  
+ 만약에, result.elements = elements.clone() 없이 
+ Stack result = (Stack) super.clone(); 으로 만 끝났다면???
+  
+ 그렇다면 반환된 result는 Stack 인스턴스와는 다르겠지만, elements 필드는 원본 Stack 인스턴스와 똑같은 배열을 '참조' 할 것이다.
+ 따라서 원본이나, 복제본 중 하나만 삭제되어도 똑같이 수정되는 일이 발생한다! (== 불변식을 어긴다.)
+  
+ clone메서드는 사실상 생성자와 같은 효과를 내기 떄문이고, 우리가 원하는 clone은 원본 객체에 아무런 해를 끼치지 않는 동시에 객체의 불변식을 보장!
+ 그래서 Stack의 clone메서드는 제대로 동작하려면 '스택 내부 정보'(<> 주소 참조)를 복사해야된다.
+ (result.elements = elements.clone();)
+  
+ 위와 같이 elements(Object배열)인 경우에는 형변환할 필요가 없다. 배열의 clone은 런타임 타입과 컴파일타임 타입 모두가 원본 배열과 똑같이 반환해주기 때문.
+ 따라서 배열을 복제할때에는 clone을 쓰는 것을 권장한다.
+  
+ 만약에 final이 사용되고 있다면, final은 또 다른 값을 지정할 수 없다는 점에서 불변식을 보장하지 못하고 그러므로 사용하면 안된다.
+  
+ ex) HashTable ; 버킷들의 배열이고 각 버킷은 키.값 쌍을 담은 연결 리스트의 첫번째 엔트리를 참조하는 예시.
+  연결 리스트를 복제하는 방법으로 재귀적으로 호출하는 것은 좋은 방법이 아니다. 
+  재귀 호출 때문에 리스트의 원소 수만큼 스택 프레임을 소비하여 리스트가 길면 스택 오버 플로우 에러가 날 수 있다. 
+  이 문제를 피하려면 deepCopy 메서드를 재귀 호출 대신에 반복자를 사용하여 순회하는 방향으로 구현할 수 있다.
+  public class HashTable implements Cloneable{
+    private Entry[] bukets = ...;
+    private static class Entry{
+      final Object key;
+      Object value;
+      Entry next;
+      
+      Entry(Object key, Object value, Entry next){
+        this.key = key;
+        this.value = value;
+        this.next =next;
+      }
+    }
+  }
+  
+   @Override
+    public HashTable clone() {
+    	try {
+    		HashTable result= (HashTable) super.clone();
+    		result.buckets = buckets.clone();
+    		return result;
+    	}catch (CloneNotSupportedException e) {
+    		throw new AssertionError();
+		}} -> 잘못된 clone메서드 복젲분은 자신만의 버켓 배열을 갖미나, 이 배열은 원본과 같은 연결 리스트를 참조하여 원본과 
+    복제본 모두에게 예치기 않은 동작할 가능성이 생김. (?)
+    
+ 따라서 엔트리가 가리키는 연결 리스트를 재귀적으로 복사하여 깊은 복사를 유지해야한다.
+     Entry deepCopy() {
+            return new Entry(key, value, next == null ? null : next.deepCopy());
+        } -> 하지만 이는 스택 오버플로의 문제가 생길 수 있다.
+
+   Entry deepCopy() {
+    Entry result = new Entry(key, value, next);
+    for (Entry p = result; p.next != null; p = p.next)
+      p.next = new Entry(p.next.key, p.next.value, p.next.next);
+    return result;
+   } -> 반복자를 써서 순회하는 방향으로 수정해야된다.
+        
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+[복사 생성자와 복사 팩터리]
+객체를 복제하는 다른 방법으로 복사 생성자와 복사 팩토리 방식이 있다. 
+- 복사 생성자 : 자신과 같은 클래스의 인스턴스를 인수로 받는 생성자를 말한다.
+ex)
+public Yum(Yum yum) {...}
+ 
+-복사 팩토리 : 복사 생성자를 정적 팩토리 형식으로 정의한 것이다.
+
+public static Yum newInstance(Yum yum) {...}
+ 
+장점 : 
+- cloneable/clone방식보다 나은 면이 많다.
+- 언어 모순적 X, 위험천만한 객체 생성 매커니즘 X, 문서화된 규약 X, final 문법과 충돌 x, 검사 예외 X, 형변환 X
+- 인터페이스 타입의 인터스턴스를 인수로 받을 수 O
+
+- 결과적으로 객체의 복제 기능은 Cloneable보다 복사 생성자와 복사 팩토리를 이용하는 것이 가장 좋다
+- 지만 배열 같은 경우는 clone() 메소드를 제대로 사용한 것이니 배열의 경우는 예외이다.
+  
+  
+  
