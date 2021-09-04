@@ -1,0 +1,116 @@
+아이템 14. Comparable을 구현할지 고려하라.
+ - CompareTo ; 단순 동치성 비교에 더해 순서까지 비교할 수 있다.
+ - Comparable ; 그 클래스의 인스턴스들에는 자연적인 순사가 있음을 뜻한다.
+ 
+ 그래서 Comparable을 구현한 객체들의 배열은 다음처럼 손쉽게 정렬 할 수 있다.
+ 
+ Arrays.sort(a);
+ 
+ 자바 플랫폼 라이브러리의 모든 값 클래스와 열거타입이 Comparable을 구현했다. 
+ 알파벳, 숫자, 연대 같이 순서가 명확한 값 클래스를 작성한다면 반드시 Comparable 인터페이스를 구현하자.
+ 
+ public interface Comparable<T>{
+  int compareTo(T t);
+ }
+ 
+ [Comparable 의 규약]
+ 
+ - 이 객체와 주어진 객체의 순서를 비교
+ - 이 객체가 주어진 객체보다 작으면 음수 크면 양수를 반환
+ - 이 객체와 비교할 수 없는 타입의 객체가 주어지면 ClassCastException을 던진다.
+ - 모든 x,y에 대해 sgn(x.compareTo(y)) == -sgn(y.compareTo(x))여야 한다.
+ - x.compareTo(y) > 0 && y.compareTo(z) > 0 이면 x.compareTo(z) > 0이다. (추이성)
+ - x.compareTo(y) == 0 이면 모든 z에 대해 sgn(x.compareTo(z)) == sgn(y.compareTo(z)) 이다.
+ - 두 객체 참조의 순서를 바꿔 비교해도 예상한 결과가 나와야한다. 즉 첫번째 객체가 두 번째 객체보다 작으면, 두 번째가 첫 번째와 커야 한다.
+ - 첫 번째가 두 번째보다 크면, 두 번째는 첫 번째보다 작아야한다. 
+ - 첫 번쨰가 두 번째보다 크고 두 번째 가 세 번째보다 크면, 첫 번째는 세 번째보다 커야한다.
+ - 크기가 같은 객체들끼리는 어떤 객체와 비교하더라도 항상 같아야 한다.
+ 
+ - CompareTo의 마지막 규악은 필수는 아니지만, 꼭 지키길 권한다.
+  CompareTo 메서드로 수행한 동치성 테스트 결과가 equals와 같아야한다.
+  
+ [Comparable 인터페이스 구현 시 주의 사항]
+ - 기존 클래스를 확장한 구체 클래스에서 새로운 값 컴포넌트(필드)를 추가했다면 compareTo 규약을 지킬 방법이 없다. 
+ - 이 주의사항은 equals에도 적용된다. 
+ - 우회법은 역시 equals에서의 우회법과 같다. 
+ - Comparable을 구현한 클래스를 확장해 값 컴포넌트를 추가하고 싶다면, 확장하는 대신 독립된 클래스를 만들자.
+ - 이 클래스에 원래 클래스의 인스턴스를 가리키는 필드를 두자. 
+ - 그런 다음 내부 인스턴스를 반환하는 '뷰' 메서드를 제공하자. 
+ - 이렇게 하면 바깥 클래스에 우리가 원하는 compareTo 메서드를 구현해 넣을 수 있다. 
+ - 클라이언트는 필요에 따라 바깥 클래스의 인스턴스를 필드 안에 담긴 원래 클래스의 인스턴스로 다룰 수도 있을 것이다.
+
+ 
+
+기본 타입 필드를 비교할 때는 ">", "<" 이런 연산자를 사용하지 않고 자바7부터 추가된 정적 메서드인 Double.compare, Float.compare 사용을 권한다. 이 방식은 거추장스럽고 오류를 유발하니, 이제는 추천하지 않는다.
+
+public final class CaseInsensitiveString implements Comparable<CaseInsensitiveString> {
+    private String s;
+    public int compareTo(CaseInsensitiveString cis) {
+        return String.CASE_INSENSITIVE_ORDER.compare(s, cis.s); //대소문자 구분 없이 비교
+    }
+}
+ 
+
+- 필드가 여러개인 클래스에서 Comparable 인터페이스 구현
+클래스에 핵심 필드가 여러개라면 어느 것을 먼저 비교할지가 중요.
+가장 핵심적인 필드부터 비교를 하면 된다. 비교 결과가 0이 아니라면 즉 순서가 결정되면 거기서 끝.
+다음 코드는 item 10의 PhoneNumber 클래스의 compareTo 메서드에서 중요한 코드부터 비교한 예시이다.
+
+public int compareTo(PhoneNumber pn) {
+    int result = Short.compare(areaCode, pn.areaCode);
+    if (result == 0)  {
+        result = Short.compare(prefix, pn.prefix);
+        if (result == 0)
+            result = Short.compare(lineNum, pn.lineNum);
+    }
+    return result;
+}
+ 
+
+자바 8부터는 Comparator 인터페이스가 비교자 생성 메서드와 함께 연쇄 방식으로 비교자를 생성할 수 있게 되었다. 
+이 비교자들을 Comparable 인터페이스가 원하는 compareTo 메서드를 구현하는데 활용할 수 있다. ((-) 성능 저하)
+
+private static final Comparator<PhoneNumber> COMPARATOR =
+        Comparator.comparingInt((PhoneNumber pn) -> pn.areaCode)
+                .thenComparingInt(pn -> pn.prefix)
+                .thenComparingInt(pn -> pn.lineNum);
+
+public int compareTo(PhoneNumber pn) {
+    return COMPARATOR.compare(this, pn);
+}
+ 
+- Comparator의 보조 생성 메서드
+Comparator는 수많은 보조 생성 메서드들로 중무장하고 있다. 
+long과 double용으로는 thenComparingLong과 thenComparingDouble이 있다. 
+short처럼 더 작은 정수 타입에는 위 PhoneNumber처럼 int용 메서드를 사용하면 된다.
+마찬가지로 float은 double용 메서드를 사용하면 된다. 
+Comparator 이렇게 자바의 모든 숫자용 기본 타입에 대한 비교자 생성 메서드를 지원한다.
+
+ 
+
+- 안티 패턴 - 값의 차를 기준으로 비교
+값의 차를 기준으로 첫 번째 값이 두 번째 값보다 작으면 음수를, 두 값이 같으면 0을, 첫 번째 값이 크면 양수를 반환하는 compareTo나 compare 메서드를 만들면 안된다. 
+이 방식은 정수 오버플로를 일으키거나IEEE 754 부동소수점 계산 방식에 따른 오류를 낼 수 있다. 또한 이번 아이템에서 설명한 방법대로 구현한 코드보다 월등히 빠르지도 않을 것이다.
+
+static Comparator<Object> hashCodeOrder = new Comparator<Object>() {
+    @Override
+    public int compare(Object o1, Object o2) {
+        return o1.hashCode() - o2.hashCode();
+    }
+}
+ 
+
+아래의 두 가지 방법 중 하나를 선택하여 구현해야 한다.
+
+static Comparator<Object> hashCodeOrder = new Comparator<Object>() {
+    @Override
+    public int compare(Object o1, Object o2) {
+        return Integer.compare(o1.hashCode(), o2.hashCode());
+    }
+}
+static Comparator<Object> hashCodeOrder = Comparator.comparingInt(o -> o.hashCode());
+ 
+[핵심 정리]
+순서를 고려해야 하는 값 클래스를 작성한다면, 꼭 Comparable 인터페이스를 구현하여, 그 인스턴스들을 쉽게 정렬하고 
+검색하고, 비교 기능을 제공하는 컬렉션과 어울러지도록 해야한다.
+ 
