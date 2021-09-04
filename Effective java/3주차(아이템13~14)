@@ -76,13 +76,13 @@ tip2)불변 class vs 가변 class
 	}
   
   @Override public Stack clone() {
-		try {
-			Stack result = (Stack) super.clone();
-			result.elements = elements.clone();  //Object의 주소는 다르지만 Object안에 담겨있는 객체들의 레퍼런스는 같음
-			return result;
-		}catch(CloneNotSupportedException e) {
-			throw new AssertionError();
-		}
+	try {
+		Stack result = (Stack) super.clone();
+		result.elements = elements.clone();  //Object의 주소는 다르지만 Object안에 담겨있는 객체들의 레퍼런스는 같음
+		return result;
+	}catch(CloneNotSupportedException e) {
+		throw new AssertionError();
+	}
 	
 	public Object pop() {
         if (size == 0)
@@ -90,8 +90,8 @@ tip2)불변 class vs 가변 class
         Object result = elements[--size];
         elements[size] = null;  //다 쓴 참조 해제
         return result;
-    }
-	}
+    	}
+  }
   
  만약에, result.elements = elements.clone() 없이 
  Stack result = (Stack) super.clone(); 으로 만 끝났다면???
@@ -127,28 +127,29 @@ tip2)불변 class vs 가변 class
     }
   }
   
-   @Override
-    public HashTable clone() {
-    	try {
+ @Override
+ public HashTable clone() {
+ 	try {
     		HashTable result= (HashTable) super.clone();
     		result.buckets = buckets.clone();
     		return result;
     	}catch (CloneNotSupportedException e) {
     		throw new AssertionError();
-		}} -> 잘못된 clone메서드 복젲분은 자신만의 버켓 배열을 갖미나, 이 배열은 원본과 같은 연결 리스트를 참조하여 원본과 
-    복제본 모두에게 예치기 않은 동작할 가능성이 생김. (?)
+	}
+ } -> 잘못된 clone메서드 복젲분은 자신만의 버켓 배열을 갖미나, 이 배열은 원본과 같은 연결 리스트를 참조하여 원본과 
+ 복제본 모두에게 예치기 않은 동작할 가능성이 생김. (?)
     
  따라서 엔트리가 가리키는 연결 리스트를 재귀적으로 복사하여 깊은 복사를 유지해야한다.
-     Entry deepCopy() {
-            return new Entry(key, value, next == null ? null : next.deepCopy());
-        } -> 하지만 이는 스택 오버플로의 문제가 생길 수 있다.
+ Entry deepCopy() {
+    return new Entry(key, value, next == null ? null : next.deepCopy());
+ } -> 하지만 이는 스택 오버플로의 문제가 생길 수 있다.
 
-   Entry deepCopy() {
+ Entry deepCopy() {
     Entry result = new Entry(key, value, next);
     for (Entry p = result; p.next != null; p = p.next)
       p.next = new Entry(p.next.key, p.next.value, p.next.next);
     return result;
-   } -> 반복자를 써서 순회하는 방향으로 수정해야된다.
+ } -> 반복자를 써서 순회하는 방향으로 수정해야된다.
         
 
 ----------------------------------------------------------------------------------------------------------------------------------------------
