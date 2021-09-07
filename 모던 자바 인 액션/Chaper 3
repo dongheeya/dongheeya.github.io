@@ -96,3 +96,98 @@ Chaper 3. 람다 표현식
     }
   }
  3.3.1 1단계  : 동작 파라미터화를 기억하라.
+  해당 위의 코드에서는 한줄만 읽을 수 있다.
+  한번에 2줄을 읽거나 가장 자주 사용되는 단어를 반환하려면 어떻게 해야될까?
+  기존 설정, 정리 과정을 재사용하고 processFile매서드만 다른 동작을 수행하도록 명령할 수 있다면 좋을 것이다.
+  즉, processFile 동작을 파라미터화 하는 것이다.
+  
+  람다를 이용하여 한번에 두 행을 읽게하려면 다음과 같이 가능하다.
+  String result = processFile((BufferReader br) -> br.readLine() + br.readLine());
+  
+ 3.3.2 2단계 : 함수형 인터페이스를 이용해서 동작 전달.
+ 함수형 인터페이스 자리에 람다를 사용할 수 있다.
+ BufferedReader -> String과 IOException을 던질 수 있는 시그니처와 일치하는 함수형 인터페이스는 다음과 같다.
+ 
+ @FunctionalInterface
+ public interface BufferedReaderProcessor {
+  String process(BufferedReader b) throws IOException;
+ }
+ 
+ 그리고 인터페이스를 processFile메서드로 인수를 전달할 수 있다.
+ public String processFile(BufferedReaderProcessor p) throws IOException {
+ 
+ }
+ 
+ 3.3.3 3단계 : 동작 실행
+ 
+ public String processFile(BufferedReaderProcessor p) throws IOException {
+  try(BufferedReader br = new BufferedReader(new FileReader("data.txt"))){
+   return p.process(br);
+  }
+ }
+ 
+ 3.3.4 4단계 : 람다 전달
+ 람다를 이용해서 다양한 동작을 processFile메서드로 전달가능하다.
+ String oneLine = processFile((BufferReader br) -> br.readLine());
+ 
+ String twoLine = processFile((BufferReader br) -> br.readLine() + br.readLine() );
+ 
+3.4 함수형 인터페이스 사용
+ - 함수형 인터페이스는 오직 하나의 추상메서드를 지정하고, 람다의 시그니처를 묘사한다.
+ 함수형 인터페이스의 추상 메서드 시그니처를 함수 드시크립터라고 한다.
+ 자바 api는 Comparable, Runnable, Callable 등의 다양한 함수형 인터페이스를 포함하고있다.
+ 
+ 3.4.1 Predicate
+  - java.util.function.Predicate<T> 는 test라는 추상 메서드를 정의하며, test는 제네릭 형식 T의 객체를 인수로 받아 불리언을 반환.
+  
+  @FunctionalInterface  // 함수형 인터페이스
+  public interface Predicate<T> {
+   boolean test(T t);
+  }
+  
+  public <T> List<T> filter(List<T> list, Predicate<T> p){
+   List<T> results= new ArrayList<>();
+   for(T t:list){
+    if(p.test(t)) result.add(t)
+   return results;
+  }
+  
+  Predicate<String> nonEmptyStringPredicate = (String s) -> !s.isEmpty();
+  List<String> nonEmpty = filter(listOfString, nonEmptyStringPredicate);
+  
+ 3.4.2 Consumer 
+  - java.util.function.Consumer<T> 는 제네릭 형식 T객체를 받아서 void반환하는 accept라는 추상 메서드를 정의한다.
+  
+  @FunctionalInterface
+  public interface Consumer<T> {
+   void accept(T t);
+  }
+  
+  public <T> void forEach(List<T> list, Consumer<T> c){
+   for(T t : list) c.accept(t);
+  }
+  
+  forEach(
+   Arrays.asList(1, 2, 3, 4, 5), (Integer i) -> System.out.println(i)
+  );
+
+  3.4.3 Function
+   - java.util.function.Function<T, R> 제네릭 형식 T를 인수로 받아서 제네릭 형식 R객체를 반환하는 추상 메서드 apply정의한다.
+   ex) String리스트 인수로 받아 각 String 의 길이를 포함하는 Integer 리스트로 변환하는 map메서드 정의하는 예제.
+   
+   @FunctionalInterface
+   public interface Function<T, R> {
+     R apply(T t);
+   }
+   
+   pubic <T, R> List<R> map(List<T> list, Function<T, R> f){
+    List<R> result = new ArrayList<>();
+    for(T t: list){
+     result.add(f.apply(t));
+    }
+    return result;
+   }
+   
+   List<Integer> l = map(Arrays.asList("lamdas","in","action"), (String s) -> s.length());
+   
+   
