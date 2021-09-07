@@ -258,6 +258,26 @@ Chaper 3. 람다 표현식
  메서드 참조를 이용하면 기존의 메서드 정의를 재활용해서 람다처럼 전달할 수 있다.
  때로는 람다 표현식보다 메서드 참조가 가독성이 더 좋으며 자연스러울 수 있다./
  
- ex) 
+ ex) inventory.sort((Apple a1, Apple a2) -> a1.getWeight().compareTo(a2.getWeight()));
+  == inventory.sort(comparing(Apple::getWeight));
+  
+ 3.6.1 메서드 참조가 왜 중요한가?
+ 메소드 참조는 특정 메서드만을 호출하는 람다의 축약형이라고 생각할 수 있다.
+ 실제로 이를 이용하면 기존 메서드 구현으로 람다 표현식을 만들수 있다.
+ 그리고 가독성을 높일 수 있다.
+ 
+ 메서드 함수는 메서드명 앞에 구분자(::)를 붙이는 방식으로 활용.
+ 실제로  (Apple a) ->a.getWeight() 를 축약한 것이 Apple::getWeight
+ 
+ [만드는 방식]
+  1) 정적 메서드 참조 
+     ex) Integer의 parseInt메서드는 Integer::parseInt로 표현할 수 있다.
+  2) 다양한 형식의 인스턴스 메서드 참조 
+     ex) String의 length메서드는 String::length로 표현
+  3) 기존 객체의 인스턴스 메서드 참조
+     예를들어, Transaction객체를 할당받은 expensiveTransaction 지역변수가 있고, Transaction객체에는 getValue메서드가 있다면, 
+     이를 expensiveTransaction::getValue라고 표현한다.
+     
+     
     
    
