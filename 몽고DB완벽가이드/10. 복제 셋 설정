@@ -19,4 +19,40 @@
   그러면 ~/data/rs1, ~/data/rs2, ~/data/rs3 디렉터리가 생성된다.
   
   리눅스나 맥 os에서는 다음 명령을 각 별도의 터미널에서 실행한다.
+  $monogod --replSet mdbDefGuide --dbpath ~data/rs1 --port 27017 \ --smaillfiles --oplogSize 200
+  $monogod --replSet mdbDefGuide --dbpath ~data/rs2 --port 27017 \ --smaillfiles --oplogSize 200
+  $monogod --replSet mdbDefGuide --dbpath ~data/rs3 --port 27017 \ --smaillfiles --oplogSize 200
   
+ 10.3 네트워크 고려 사항
+  - 복제 셋의 모든 멤버는 같은 셋 내 다른 멤버와 연결할 수 잇어야한다.
+  - 만약 이미 작동 중인 다른 멤버에 연결할 수 없다는 오류가 발생하면 연결이 이뤄지도록 네트워크 구성을 바꿔야한다.
+  - 별도의 서버에서 쉽게 실행할 수 있다.
+  - 몽고db 3.6이 출시되면서 mongod 는 기본적인 로컬호스트 127.0.0.1에만 바인딩 한다.
+  - 복제 셋의 각 멤버가 다른 멤버와 통신하려면 다른 멤버가 연결할 수 잇는 ip 주소에도 바인딩해야한다.
+  
+  ex)  ip주소가 198.51.100.1인 네트워크 인터페이스가 있는 서버에서 monogod 인스턴스를 실행중이다.
+  인스턴스를 각기 다른 서버의 멤버와 함께 봅제 셋의 멤버로 실행하려면, 명령행 매개변수 --bind_ip를 지정하거나 인스턴스 구성파일에 있는 bind_ip를 사용한다.
+  
+ 10.4 보안 고려 사항.
+  - localhost이외의 ip주소에 바인딩하기 전 복제 셋을 구성할 때, 권한 제어를 활성화하고 인증 메커니즘을 지정해야한다
+  - 디스크의 데이터를 암호화하고 복제 셋 멤버 간 통신 및 셋과 클라이언트 간 통신을 암호화하면 좋다.
+  
+ 10.5 복제 셋 설정 -2장
+ - 지금가지 수행한 작업으로는 아직 각 mongod가 다른 mongod의 존재를 알지 못한다.
+ - 네 번째 터미널에서 실행 중인 mongod 인스턴스 중 하나에 연결하는 mongo 셸을 시작한다.
+ - 다른 명령을 입력해 수행할 수 있다.
+ 
+ 명령은 포트 27017에서 실행 중인 mongod에 연결한다.
+ $ mongod --port 27017
+ 그런 다음 mongo셸에서 구성 도큐먼트를 만들고 rs.initiate()보조자에 전달해 복사 셋을 시작한다.
+ >  rsconf = {
+  _id : "mdbDefGuide",
+  members : [
+   {_id:0,host:"localhost:27017"},
+   {_id:1,host:"localhost:27018"},
+   {_id:2,host:"localhost:27019"}
+  ]}
+  rs.initate(rsconf)
+  
+  구성의 _id는 명령행에 전달한 복제 셋의 이름이다.
+  도큐먼트의 다음 부분은 셋 멤
