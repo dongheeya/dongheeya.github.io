@@ -16,4 +16,89 @@
  메서드가 그 필드를 그대로 반환해서도 안된다.
  
  17-1 불변 복소수 클래스
+public final class Complex {
+    private final double re;
+    private final double im;
+    private Complex(double re, double im){
+        this.re = re;
+        this.im = im;
+    }
+    public static Complex valueOf(double re, double im){
+        return new Complex(re, im);
+    }
+    public double realPart() {
+        return re;
+    }
+    public double imaginaryPart(){
+        return im;
+    }
+    public Complex plus(Complex c){
+        return new Complex(re+c.re, im+c.im);
+    }
+    public Complex minus(Complex c){
+        return new Complex(re-c.re, im-c.im);
+    }
+    public Complex times(Complex c){
+        return new Complex(re*c.re - im*c.im, re*c.im + im*c.re);
+    }
+    public Complex divdedBy(Complex c){
+        double tmp = c.re*c.re+c.im*c.im;
+        return new Complex((re*c.re + im*c.im)/tmp,(im*c.re-re*c.im)/tmp);
+    }
+    @Override public boolean equals(Object o){
+        if(o == this) return true;
+        if(!(o instanceof Complex)) return false;
+        Complex c = (Complex) o;
+
+        return Double.compare(c.re, re) == 0 && Double.compare(c.im, im) == 0;
+    }
+    @Override
+    public int hashCode(){
+        return 31 * Double.hashCode(re) + Double.hashCode(im);
+    }
+    @Override
+    public String toString(){
+        return "("+re+" + "+im+"i)";
+    }
+}
+ 이 클래스는 복소수를 표현하는데, 사칙연산 메서드들이 인스턴스 자신은 수정하지 않고 새로운  Complex 인스턴스를 만들어 반환하는 모습에 주목해야된다.
+ 이처럼 피연산자에 함수를 적용해 그 결과를 반환하지만, 피연산자 자체는 그대로인 프로그래밍 패턴을 함수형 프로그래밍이라고 한다.
+ 이러한 함수형 프로그래밍 방식을 사용한다면 코드에서 불변이 되는 영역의 비율이 높아지는 장점을 누릴수 있다.
+ 불변 객체는 단순하다.
+ 불변 객체는 생성되는 시점의 상태를 파괴될때까지 그대로 간직한다.
+ 불변 객체는 근본적으로 스레드 안전하여 따로 동기화할 필요 없다.
+ 여러 스레드가 동시에 사용해도 절대 훼손되지 않는다.
+ 따라서 안심하고 공유해도된다.
+ 그래서 한번 만든 인스턴스를 최대한 재활용하기를 권한다.
+ 가장 쉬운 방법은 상수(public static final)로 제공하는 것이다.
+ 
+ ex) public static final Complex ZERO = new Complex(0,0);
+ 
+ 이 방식은 자주 사용되는 인스턴스를 캐싱하여 같은 인스턴스를 중복 생성하지 않도록 해주는 정적 팩터리를 제공하는 것이다.
+ 박싱된 기본 타입 클래스 전부와 BigInteger가 여기 속하는데 이 방법 모두 인스턴스를 공유하여 메모리 사용량과 가비지 컬렉션 비용이 줄어든다.
+ 
+ 불변 객체를 자유롭게 공유할 수 있다는 점은 방어적 복사도 필요없다는 결론으로 귀결된다.(아이템50)
+ 아무리 복사해봐도 원본과 똑같으니 복사 자체의 의미가 없어지기 때문이다.
+ 그러니 불변 클래스는 clone 메서드나 복사 생성자를 제공하지 않는게 좋다.(아이템13)
+ 불변 객체는 자유롭게 공유할수 잇음은 물론, 불변 객체끼리는 내부 데이터를 공유할 수 있다.
+ 객체를 만들때 다른 불변 객체들을 구성요소로 사용하면 이점이 많다.
+ 값이 바뀌지 않는 구성요소들로 이뤄진 객체라면 그 구조가 아무리 복잡하더라도 불변식을 유지하기 훨씬 수월하기 때문이다.
+ 
+ 불변 객체는 그 자체로 실패 원자성을 제공한다.(아이템 76)
+ 상태가 절대 변하지 않으니 잠깐이라도 불일치 상태에 빠질 가능성이 없다.
+ 
+ <<불변 클래스의 단점>>은 값이 다르면 반드시 독립된 객체로 만들어야한다는 것이다.
+ 원하는 객체를 완성하기까지의 단계가 많고, 그 중간 단계에서 만들어진 객체들이 모두 버려진다면 성능 문제가 더 불거진다.
+ 
+ 
+ <<불변 클래스 설계방법>>
+ 1. 자신을 상속하지 못하도록 final 클래스를 선언하는 방법
+ 2. 자신을 상속하지 못하도록 모든 생성자를 private 혹은 packgae-private로 만들고 public 정적 팩터리를 제공하는 방법이다.
+ 3. getter가 있다고해서 모조건 setter를 만들지는 말자. 클래스는 꼭 필요한 경우가 아니라면 불변이어야한다.
+ 4. 단순한 값은 항상 불변으로 만들자.
+ 5. 모든 클래스를 불변으로 만들기는 힘드므로 불변으로 만들 수 없는 클래스라도 변경할 수 잇는 부분을 최소한으로 줄이자.
+ 6. 합당한 이유가 없다면 모든 필드는 priavte final이어야한다.
+ 7. 생성자는 불변식 설정이 모두 완료된, 초기화가 완벽히 끝난 상태의 객체를 생성해야한다
+ 
+ 
  
