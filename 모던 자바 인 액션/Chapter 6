@@ -99,4 +99,73 @@ Chapter 6. 스트림으로 데이터 수집
  
  Optional<Dish> mostCalorieDish = menu.stream().collect(reducing((d1,d2) -> d1.getCaloreis() > d2.getCalories()? d1 : d2));
  
- 한개의 
+ 컬렉션 프레임워크 유연성 : 같은 연산도 다양한 방식으로 수행할 수 잇다.
+ reducing 컬렉터를 사용한 이전 예제에서 람다 표현식 대신 Integer클래스의 sum메서드 참조를 이용하면 코드를 좀 더 단순화할 수 있다.
+ 
+ int totalCalories - menu.stream().collet(reducing(0                          <- 초깃값
+                                                 , Dish::getCalories          <- 합계 함수
+                                                 , Integer::sum));            <- 변환 함수
+ 또는
+ int totalCalories = menu.stream().map(Dish::getCalories).reduce(Integer::sum).get
+ 
+ 한 개의 인수를 갖는 reduce를 스트림에 적용한 다른 예제와 같이 reduce integer::sum도 빈 스트림과 관련한 널 문제를 피할 수 있도록 int가 아닌 Optional<Integer>
+ 를 반환한다.
+ 그리고 get으로 Optional객체 내부의 값을 추출했다.
+ 
+ 마지막으로 스트림을 IntStream으로 매핑한 다음에 sum메서드를 호출하는 방밥으로도 결과를 얻을 수 있다.
+ int totalCalories = menu.stream().mapToInt(Dish::getCalories).sum();
+ 
+ 
+6.3 그룹화
+ 데이터 집합을 하나 이상의 특성으로 분류해서 그릅화하는 연산도 데이터베이스에서 많이 수행되는 작업이다.
+ 명령형으로 그릅화를 구현하려면 까다롭고, 할일이 많으며, 에러도 많이 발생한다.
+ 
+ 하지만 자바8의 함수형을 이용하면 가독성 있는 한 줄의 코드로 그룹화를 구현할 수 있다.
+ ex) 메뉴를 그룹화한다고 가정하자.
+ 예를 들어, 고기를 포함하는 그룹, 생성을 포함하는 그룹, 나머지 그룹으로 메뉴를 그룹화할 수 있다.
+ Collectors.groupingBy를 이용해서 쉽게 메뉴를 그룹화할 수 있다.
+ 
+ Map<Dish.Type, List<Dish>> dishesByType = menu.stream().collect(groupingBy(Dish::getType));
+
+ 결과는 
+ {FISH=[pramw, salmon], OTHER=[french fries, rice, season fruit, pizza], MEAT=[pork, beef,chicken]}
+ 이 함수를 기준으로 스트림이 그룹화되므로 이를 분류 함수라고 부른다.
+ 
+ ![텍스트](바탕 화면/6-4캡처.png)
+ 
+ 예를 들어 400칼로리 이하를 diet로 400!700 칼로리를 normal로 700칼로리 추과를 fat요리로 분류한다고 가정하자.
+ 
+ public enum CaloricLevel { DIET, NORMAL, FAT}
+ 
+ Map<CaloricLevel, List<Dish>> dishesByCaloricLevel = menu.stream().collect(groupingBy(dish ->
+                                                        if(dish.getCalories() <= 400) return CaloricLevel.DIET;
+                                                        else if(dish.getCalories() <= 700) return CaloricLevel.NORMAL;
+                                                        else return CaloricLevel.FAT;
+                                                    }));
+                                                    
+ 6.3.1 그룹화 된 요소 조작
+ 요소를 그룹화한 다음에는 각 결과 그룹의 요소를 조작하는 연산이 필요하다.
+ 500 칼로리가 넘는 요리만 필터한다고 가정하자. 다음 코드처럼 그룹화를 하기전에 프레디케이스로 필터를 적용해
+ 문제를 해결할 수 있다고 생각할 것이다.
+ 
+ Map<Dish.Type, List<Dish>> caloricDishesByType = menu.stream().filter(dish ->dish.getCalories() > 500).collect(groupingBy(Dish::getType));
+ 
+ 위코드로 문제를 해결할 수 있지만, 이러한 경우는 fish 종류 요리는 없으므로 500칼로리 넘는 결과가 없으므로 결과 map에서는 안나오게 된다. 
+ 해당 fish가 결과가 없더라도 키로 존재하기 위해서는 다음과 같은 작업을 해줘야 한다.
+ 
+ Map<Dish.Type, List<Dish>> caloricDishesByType = menu.stream().collect(groupingBy(Dish::getType, filtering(dish -> dish.getCalories() > 500, toList()));
+                                                    
+ filtering 메서드는 Collectors 클래스의 또 다른 정적 팩토리 메서드로 프레디케이트를 인수로 받는다.
+ 이 프레디케이트로 각 그룹의 요소와 필터링 된 요소를 재 그룹화한다.
+ 이렇게해서 아래 결과 맵에서 볼 수 있는 것처럼 목록이 비어있는 fish도 항목으로 추가된다.
+ 
+ {OTHER=[french fries, pizza], MEAT={pork, beef}, FISH={}]
+ 
+ 6.3.2 다수준 그릅화
+ 두 인수를 받는 패고리 메서드 Collectors.groupingBy 를 이용해서 항목을 다수준으로 그룹화할 수 잇다,
+ Collectors.groupingBy는 일반적인 분류 함수와 컬렉터를 인수로 받는다.
+ 즉 바깥쪽 groupingBy 메서드를 스트림의 항목을 분류할 두번째 기준을 정의하는 내부 groupingBy를 전달해서 두 수준으로 스트림의 항목을 그룹화
+ 할수 있다.
+ 
+ 
+ 
