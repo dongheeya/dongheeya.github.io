@@ -131,7 +131,7 @@ Chapter 6. 스트림으로 데이터 수집
  {FISH=[pramw, salmon], OTHER=[french fries, rice, season fruit, pizza], MEAT=[pork, beef,chicken]}
  이 함수를 기준으로 스트림이 그룹화되므로 이를 분류 함수라고 부른다.
  
- ![텍스트](바탕 화면/6-4캡처.png)
+https://github.com/kdh92/kdh92.github.io/issues/1#issue-1009682911
  
  예를 들어 400칼로리 이하를 diet로 400!700 칼로리를 normal로 700칼로리 추과를 fat요리로 분류한다고 가정하자.
  
