@@ -69,20 +69,25 @@
  * 일반적으로 기기의 프로세서 수와 같으므로 특별한 이유가 없다면 ForkJoinPool의 기본값을 그대로 사용할 것을 권장한다.
 
  <font size="12px">7.1.2 스트림 성능 측정</font>
+ 
  병렬화를 이용하면 순차나 반복 형식에 비해 성능이 더 좋아질 것이라 츠측했다.
  하지만 sw공학에서는 추측은 위험한 방법이고 "측정"을 통해서 확인해야된다.
  자바 마이크로벤치카므 하니스(HMH)라는 라이브러리를 이용해 작은 벤치마크를 구현할 것이다.
  이 JMH를 이용하면 간단하고 어노테이션 기반 방식을 지원하며, 안정적으로 자바 프로그램이나 자바 가상 머신을 대상으로 하는 다른 언어용 벤치마크를 구현할 수 있다.
  
  pom.xml에 몇가지 의조성을 추가해 프로젝트에서 JMH를 사용할 수 있다.
+ 
  ![7 1 2 dependency](https://user-images.githubusercontent.com/87962572/135859163-f9f14b97-5ee3-4b8e-a958-2c29174ff410.PNG)
+ 
  첫번째 라이브러리는 핵심 JMH 구현을 포함하고, 두번쨰는 자바 아카이브 JAR파일을 만드는데 도움을 준다.
 
-또한 아래와 같은 설정을 통해 벤치마크를 편하게 실행할 수 있다.
-![예제7-1](https://user-images.githubusercontent.com/87962572/135859183-64be4990-4c75-4860-8779-60b41fc10866.PNG)
+ 또한 아래와 같은 설정을 통해 벤치마크를 편하게 실행할 수 있다.
+ 
+ ![예제7-1](https://user-images.githubusercontent.com/87962572/135859183-64be4990-4c75-4860-8779-60b41fc10866.PNG)
 
 
  예제7-1 n개의 숫자를 더하는 함수의 성능 측정
+ <xmp> 
  @BenchmrkMode(Mode.AverageTime)         <- 벤치마크 대상 메서드를 실행하는 데 걸린 평균 시간 측정
  @OutputTimeUnit(TimeUnit.MILLISECONDS)  <- 벤치마크 결과 밀리초 단위로 출력
  @Fork(2, jvmArgs={"-Xms4G","-Xmx4G"})   <- 4Gb의 힙 공간을 제공한 환경에서 두 번 벤치마크를 수행해 결과의 신뢰성 확보
@@ -99,7 +104,7 @@
     System.gc();
    }
   }
- 
+  </xmp>
   결과는 정확하지 않을 수 있음을 기억하자.
   기계가 지원하는 코어의 갯수 등이 실행 시간에 영향을 미칠 수 있기 떄문이다.
    
@@ -117,8 +122,10 @@
    - LongStream.rangeClosed는 기본형 long을 직접 사용하므로 박싱과 언박싱 오버헤드가 없어진다.
    - LongStream.rangeClosed는 쉽게 청크로 분할할 수 있는 숫자 범위를 생산한다.
    
+  <xmp> 
    LongStream.rangeClosed(1, N).parallel() // 스트림을 병렬스트림으로 변환
                .reduce(0L, Long::sum);
+  </xmp>
                
   해당 예제코드는 순차 실행보다 빠른 성능을 갖는다.    
 
@@ -130,7 +137,7 @@
  <font size="12px">7.1.3 병렬 스트림의 올바른 사용법</font>
 
  보통 병렬 스트림을 잘못 사용해서 발생하는 문제는 공유된 상태를 바꾸는 알고리즘을 사용하기 때문에 일어난다.
-
+<xmp> 
  public long sideEffectSum(long n){
   Accumulator acc = new Accumulator();
   LongStream.rangeClosed(1, n).forEach(accumulator::add);
@@ -152,6 +159,7 @@
   LongStream.rangeClosed(1, n).parallel().forEach(accumulator::add);
   return acc.total;
  }
+ </xmp>
  
  메서드 성능은 둘째 치고, 올바른 결과값이 나오지 않는다.
  여러 스레드에서 동시에 누적자, 즉 total += value를 실행하면서 이런 문제가 발생한다.
