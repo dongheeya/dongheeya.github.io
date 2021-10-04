@@ -63,8 +63,8 @@
  parallel과 sequential 두 메서드 중 최종적으로 호출된 메서드가 전체 파이프라인에 영향을 미친다.
  이 예제에서도 파이프라인의 마지막 호출은 parallel이므로 파이프라인은 전체적으로 병렬로 실행된다.
  
- * 병렬 스트림에서 사용하는 스레드 폴 설정 *
- * - 병렬 스트림은 내부적으로 ForkJoinPool을 사용한다. 기본적으로 ForkJoinPool은 프로세서 수, 즉 Runtime.getRuntime(), availableProcessors()가 반환하는 값에 
+ [병렬 스트림에서 사용하는 스레드 폴 설정]
+ * 병렬 스트림은 내부적으로 ForkJoinPool을 사용한다. 기본적으로 ForkJoinPool은 프로세서 수, 즉 Runtime.getRuntime(), availableProcessors()가 반환하는 값에 
  * 상응하는 세레드를 가진다.
  * 일반적으로 기기의 프로세서 수와 같으므로 특별한 이유가 없다면 ForkJoinPool의 기본값을 그대로 사용할 것을 권장한다.
 
@@ -87,24 +87,24 @@
 
 
  예제7-1 n개의 숫자를 더하는 함수의 성능 측정
- <xmp> 
- @BenchmrkMode(Mode.AverageTime)         <- 벤치마크 대상 메서드를 실행하는 데 걸린 평균 시간 측정
- @OutputTimeUnit(TimeUnit.MILLISECONDS)  <- 벤치마크 결과 밀리초 단위로 출력
- @Fork(2, jvmArgs={"-Xms4G","-Xmx4G"})   <- 4Gb의 힙 공간을 제공한 환경에서 두 번 벤치마크를 수행해 결과의 신뢰성 확보
- public class parallelStreamBenchmark{
-   private static final long N =10_000_000L;
-   
+ 
+ @BenchmrkMode(Mode.AverageTime)     <br/>    <- 벤치마크 대상 메서드를 실행하는 데 걸린 평균 시간 측정
+ @OutputTimeUnit(TimeUnit.MILLISECONDS) <br/> <- 벤치마크 결과 밀리초 단위로 출력
+ @Fork(2, jvmArgs={"-Xms4G","-Xmx4G"})   <br/><- 4Gb의 힙 공간을 제공한 환경에서 두 번 벤치마크를 수행해 결과의 신뢰성 확보
+ public class parallelStreamBenchmark{<br/>
+   private static final long N =10_000_000L;<br/>
+   <br/>
    @Benchmark <- 벤치마스 대상 메서드
-   public long sequentailSum(){
-    return Stream.iterator(1L, i->i+1).limit(N).reduce(0L, Long::sum);
+   public long sequentailSum(){ <br/>
+    return Stream.iterator(1L, i->i+1).limit(N).reduce(0L, Long::sum);<br/>
    }
    
-   @TearDown(Level.Invocation)
-   public void tearDown(){
-    System.gc();
-   }
+   @TearDown(Level.Invocation)<br/>
+   public void tearDown(){<br/>
+    System.gc();<br/>
+   }<br/>
   }
-  </xmp>
+  
   결과는 정확하지 않을 수 있음을 기억하자.
   기계가 지원하는 코어의 갯수 등이 실행 시간에 영향을 미칠 수 있기 떄문이다.
    
@@ -122,11 +122,9 @@
    - LongStream.rangeClosed는 기본형 long을 직접 사용하므로 박싱과 언박싱 오버헤드가 없어진다.
    - LongStream.rangeClosed는 쉽게 청크로 분할할 수 있는 숫자 범위를 생산한다.
    
-  <xmp> 
-   LongStream.rangeClosed(1, N).parallel() // 스트림을 병렬스트림으로 변환
+  LongStream.rangeClosed(1, N).parallel() // 스트림을 병렬스트림으로 변환 <br/>
                .reduce(0L, Long::sum);
-  </xmp>
-               
+                 
   해당 예제코드는 순차 실행보다 빠른 성능을 갖는다.    
 
   결과적으로 병렬화를 위해서 스트림 분할, 서로 다른 스레드에서의 리듀싱 연산, 결과값 합치기 등의 오버헤드가 발생하기 때문에 최소한 멀티코어간의 데이터 이동 오버헤드보다 
@@ -137,13 +135,13 @@
  <font size="12px">7.1.3 병렬 스트림의 올바른 사용법</font>
 
  보통 병렬 스트림을 잘못 사용해서 발생하는 문제는 공유된 상태를 바꾸는 알고리즘을 사용하기 때문에 일어난다.
-<xmp> 
+<br/>
  public long sideEffectSum(long n){
   Accumulator acc = new Accumulator();
   LongStream.rangeClosed(1, n).forEach(accumulator::add);
   return acc.total;
  }
-
+<br/>
  public Class Accumulator{
   public long total =0;
   public void add(long val) { total += val; }
