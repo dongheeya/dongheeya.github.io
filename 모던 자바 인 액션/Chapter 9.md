@@ -142,10 +142,15 @@ menu.parallelStream()
     logger.finer("Problem: " + generateDiagnostic());
   }
 ```
-  - logger 상태가 isLoggable이라는 메서드에 의해 클라이언트 코드로 노출<br/>
-  - 메시지를 로깅할 때마나 logger객체 상태를 매번 확인해야 하므로 코드를 어지럽힘.<br/>
-
+  - logger 상태가 isLoggable이라는 메서드에 의해 클라이언트 코드로 노출
+  - 메시지를 로깅할 때마나 logger객체 상태를 매번 확인해야 하므로 코드를 어지럽힘.
   - 이때에는 logger 객체가 적절한 수즌우로 설정되었는지 내부적으로 확인하는 log메서드를 사용하는 것이 바람직하다.
 ```
   logger.log(Level.FINER, "Problem: " +generateDianostic());
 ```
+  - 위와 같이 표현을 하게되면 if문도 제거할 수 있고 logging상태도 노출할 필요도 없으므로 더 바람직하다.
+  - 하지만 위 코드로 문제가 모두 해결되지는 않는다.
+  - 인수로 전달된 메세지 수준에서 logging이 활성화되어 있지 않더라도 항상 로깅 메세지를 평가하게 되기 떄문이다.
+
+  - 이때, 람다를 표현하게 되면, 쉽게 해결할 수 있다.
+  
