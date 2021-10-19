@@ -52,9 +52,97 @@ DSL의 카테고리를 구분하는 가장 흔한 방법은 내부 DSL과 외부
 내부 DSL은 순수 자바 코드 같은 기존 호스팅 언어를 기반으로 구현하는 반면,<BR/>
 외부 DSL은 호스팅 언어와는 독립적으로 자체의 문법을 가진다.<BR/>
 
+<b>내부 DSL</b>
+- 내부 DSL 이란 자바로 구현한 DSL을 의미한다.<BR/>
+
+```
+List<String> numbers = Arrays.asList("one","two","three");
+numbers.forEach(new Comsumer<String>(){
+  @Override
+  public void accept(String s){
+    System.out.println(s);
+  }
+});
+
+```
+
+다음처럼 익명 내부 클래스를 람다 표현식으로 바꿀 수 있다.
+```
+numbers.forEach( s-> System.out.println(s));
+```
+
+순수 자바로 DSL을 구현함으로 다음과 같은 장점을 얻을 수 있다.
+1) 기존 자바 언어를 이용하면 외부 DSL에 비해 새로운 패턴과 기술을 배워 DSL을 구현하는 노력이 현저하게 줄어든다.
+2) 순수 자바로 DSL을 구현하면 나머지 코드와 함께 DSL을 컴파일러 할 수 있다.
+3) 익숙하지 않고 복잡한 외부 도구를 배울 필요가 없다.
+4) 기존의 자바 IDE를 이용해 자동완성, 자동 리팩토링 같은 기능을 그대로 즐길 수 있다.
+
+<B>다중 DSL</B>
+다중 DSL : 자바가 아니지만 JVM에서 실행됨(스칼라, 그루비 등)
+[장점]
+JVM에서 실행되는 언어 중에 문법이 간편하고 제약이 적은 언어가 많다.<BR/>
+Scala에서 내장DSL로 3번 Hello World를 출력하는 프로그램 구현<BR/>
+문법적 잡음이 없음을 확인<BR/>
+
+```
+//  주어진 함수 f를 주어진 횟수만큼 반복 실행하는 유틸리티 함수 구현
+def times(i: Int, f: => Unit): Unit = { f
+if (i > 1) timesStandard(i - 1, f)
+}
+times(3, pringln("Hello World"))
+```
+[단점]
+1) 새로운 프로그래밍 언어를 배워야만 한다.
+2) 두 개 이상의 언어가 혼재하므로 여러 컴파일러로 소스를 빌드하도록 빌드 과정을 개선해야 한다.
+3)JVM에서 실행되는 거의 모든 언어가 자바와 100% 호환을 주장하고 있지만 완벽하지 않을 때가 많다.
+4) 스칼라와 자바 컬렉션은 호환되지 않으므로 상호 컬렉션을 전달하려면 기존 컬렉션을 대상 언어의 API에 맞게 변환해야 한다.
 
 
+<B>외부 DSL</B>
+자신만의 문법과 구문으로 새 언어를 설계해야 한다.<BR/>
+새 언어를 파싱하고, 파서의 결과를 분석하고, 외부 DSL을 실행할 코드를 만들어야 한다.<BR/>
+무한한 유연성 장점이다.<BR/>
+우리에게 필요한 특성을 완벽하게 제공하는 언어를 설계할 수 있다는 것이 장점이다.<BR/>
 
+<h2>10.2 최신 자바 API의 작은 DSL</h2>
+- 자바의 새로운 기능의 장점을 적용한 첫 API는 네이티브 자바 API 자신이다.
+- 람다 표현식과 메소드 참조를 이용해 DSL의 가독성, 재사용성, 결합성이 높아졌다.
+
+<h3>10.2.1 스트림 API는 컬렉션을 조작하는 DSL</h3>
+Stream 인터페이스는 네이티브 자바 API에 작은 내부 DSL을 적용한 좋은 예다.<BR/>
+Stream은 컬렉션의 항목을 필터, 정렬, 변환, 그룹화, 조작하는 작지만 강력한 DSL로 볼 수 있다.<BR/>
+
+ex) 로그 파일을 읽어서 "ERROR"라는 단어로 시작하는 파일의 첫 40행을 수집하는 작업을 수행한다고 가정하자.
+```
+List<String> errors = new ArrayList<>();
+int errorCount = 0;
+BufferedReader bufferedReader = new BufferedReader(new FileReader(fileName));
+String line = buferedReader.readLine();
+while(errorcount < 40 && line != null){
+  if(line.startWith("ERROR")){
+    errors.add(line);
+    errorCount++;
+  }
+  line = bufferedReader.readLine();
+}
+```
+다음을 더 간단하게 보여준다면 다음과 같다.
+```
+List<String> errors = Files.line(Paths.get(fileName))   ☜ 파일을 열어서 문자열 스트림을 만듦
+                          .fileter(line -> line.startsWith("ERROR")) ☜ ERROR로 시작하는 행을 필터링
+                          .limit(40) ☜ 결과를 첫 40행으로 제한
+                          .collect(toList()); ☜ 결과 문자열을 리스트로 수집
+```
+String은 파일에서 파싱할 행을 의미하며 Files.lines는 정적 유틸리티 메서드로 Stream<String>을 반환한다.<BR/>
+파일을 한행 씩 반환하는 코드는 이게 전부이다. 에러행을 첫 40개만 수집한다.<BR/>
+  
+스트림 API의 플루언트 형식은 잘 설계된 DSL의 또 다른 특징이다.
+모든 중간 연산은 게으르며 다른 연산으로 파이프라인될 수 있는 스트림으로 반환한다.
+최종 연산은 적극적이며 전체 파이프라인이 계산을 일으킨다.
+  
+
+  
+ 
 
 
 
