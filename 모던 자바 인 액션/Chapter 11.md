@@ -145,11 +145,105 @@ Maybe는 주어진 형식의 값을 갖거나 아니면 아무 값도 갖지 않
  값이 없을 수 있음을 명시적으로 보여준다.<br/>
  반면 Car형식을 사용했을 때는 Car에 null참조가 할당될 수 있는데 이것이 올바른 값인지 아니면 잘못된 값인지 판단할 아무 정보도 없다.<br/>
  
+ ```
+ public class Person { 
+  private Optional<Car> car; ☜ 사람이 차를 소유했을 수도 소유하지 않앗을 수도 있음로 Optional로 정의한다.
+  pubilc Optional<Car> getar(){
+   return car;
+  }
+ }
  
+ public class Car { 
+  private Optional<Insurance> insurance; ☜ 자동차가 보험에 가입되어 있을 수도 가입되어 있지 않을수도 있으므로 Optional로 정의한다.
+  public Optional<Insurance> getInsurance(){
+   return insurance;
+  }
+ }
  
+ public class Insurance { 
+  private String name; ☜ 보험회사에는 반드시 이름이 있다.
+  public String getName(){
+   return name;
+  }
+ }
+ ```
  
+ Optional 클래스를 사용하면서 모델의 의미가 더 명확해졌음을 확인할 수 있다.<br/>
+ 사람은 Optional<Car>를 참조하여 자동차는 Optional<Insurance>를 참조하는데, 이는 사람이 자동차를 소유했을 수 도 아닐 수도 있으며,<br/>
+ 자동차는 보험에 가입되어 있을 수도 아닐 수도 있음을 명확히 설명한다.<br/>
  
+ 보험회사 이름은 Optional<String>이 아니라 String 형식으로 선언되어 있는데, 이는 보험회사는 반드시 이름을 가져야 함을 보여준다.<br/>
+ 따라서 보험회사 이름을 참조할 때 NullPointException이 발생할 수도 있다는 정보를 확인할 수 있다.<br/>
+ 하지만 보험회사 이름이 null인지 확인하는 코드를 추가할 필요는 없다.<br/>
  
+ Optional을 이용하면 값이 없는 상황이 우리 데이터에 문제가 있는 것인지 아니면 알고리즘의 버그인지 명확하게 구분할 수 있다.<br/>
+ 모든 null참조를 Optional로 대치하는 것은 바람직하지 않다.<br/>
+ Optional의 역할은 더 이해하기 쉬운 API를 설게하도록 돕는 것이다.<br/>
+ 메서드의 시그니처만 보고도 선택형값인지 여부를 구별할 수 있다.<br/>
+ Optional이 등장하면 이를 언랩해서 값이 없을 수 있는 상황에 적절하게 대응하도록 강제하는 효과가 있다.<br/>
  
+ <h2>11.3 Optional 적용 패턴</h2>
+ 실제로는 Optional을 어떻게 활용할 수 있을까?<br/>
+ Optional로 감싼 값을 실제로 어떻게 사용할 수 있을까?<br/>
+ 
+ <h3>11.3.1 Optional 객체 만들기</h3><br/>
+ <b>빈 Optional</b><br/>
+ 이전에도 언급했듯이 정적 팩토리 메서드 Optional.empty로 빈 Optional 객체를 얻을 수 있다.<br/>
+ 
+ ```
+ Optional<Car> optCar = Optional.empty();
+ ```
+ 
+ <b>null이 아닌 값으로 Optional 만들기 </b><br/>
+ 또는 정적 팩토리 메서드 Optional.of로 null이 아닌 값을 포함하는 Optional을 만들 수 있다.<br/>
+ 
+ ```
+ Optional<Car> optCar = Optional.of(car);
+ ```
+ 
+ 이제 car가 null이라면 즉시 NullPointerException이 발생한다.(Optional을 사용하지 않다면 car의 프로퍼티에 접근하려 할때 에러가 발생했을 것이다.)<br/>
+ 
+ <b>null값으로 Optional만들기 </b>
+ 마지막으로 정적 팩토리 메서드 Optional.ofNullable로 null값을 저장할 수 있는 Optional을 만들 수 있다.<br/>
+ 
+ ```
+ Optional<Car> optCar = Optional.ofNullable(car);
+ ```
+ 
+ car가 null이면 빈 Optional 객체가 반환된다.<br/>
+ 그런데 Optional에서 어떻게 값을 가져오는지는 아직 살펴보지 않았다.<br/>
+ get 메서드를 이용해서 Optional의 값을 가져올 수 있는데, 이는 곧 살펴볼 것이다.
+ 그런데 Optional이 비어있으면 get을 호출했을 때 예외가 발생한다.<br/>
+ <u>즉, Optional을 잘못 사용하면 결국 null을 사용했을 때와 같은 문제를 겪을 수 있다.</u><br/>
 
-
+ <h3>11.3.2 맵으로 Optional의 값을 추출하고 변환하기</h3> 
+ 보통 객체의 정보를 추출할 때는 Optional을 사용할 떄가 많다.
+ 예를 들어 보험회사의 이름을 추출한다고 가정하자.
+ 
+ 이름 정보를 접근하기 전에 insurance가 null인지 확인해야한다.
+ 
+ ```
+ String name= null;
+ if(insurance != null){
+  name = insurance.getName();
+ }
+ ```
+ 
+ ```
+ Optional<Insurance> optInsurance = Optional.ofNullable(insurance);
+ Optional<String> name = OptInsurance.map(Insurance::getName);
+ ```
+ 
+ Optional이 값을 포함하면 map인수로 제공된 함수가 값을 바꾼다.
+ Optional이 비어있으면 아무 일도 일어나지 않는다.
+ 
+ 
+ <h3>11.3.3 flapMap 으로 Optional 객체 연결</h3>
+ map을 사용하는 방법을 배웠으므로 다음처럼 map을 이용해서 코드를 재구현할 수 있다.
+ 
+ ```
+ Optional<Person> optPerson = Optional.of(person); ☜ null이 아닌 값을 포함,  null이면 에러
+ Optional<String> name = optPerson.map(Person::getCar).map(Car::getInsurance).map(Insurance::getName);
+ ```
+ 
+ 
