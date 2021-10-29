@@ -237,13 +237,168 @@ Maybe는 주어진 형식의 값을 갖거나 아니면 아무 값도 갖지 않
  Optional이 값을 포함하면 map인수로 제공된 함수가 값을 바꾼다.
  Optional이 비어있으면 아무 일도 일어나지 않는다.
  
+ ![11-2 스트림과 Optional의 map 메서드 비교](https://user-images.githubusercontent.com/87962572/139439835-bab786da-bbf6-4d8c-b281-6d1e0afe2e78.PNG)
+ 
  
  <h3>11.3.3 flapMap 으로 Optional 객체 연결</h3>
  map을 사용하는 방법을 배웠으므로 다음처럼 map을 이용해서 코드를 재구현할 수 있다.
+ 
  
  ```
  Optional<Person> optPerson = Optional.of(person); ☜ null이 아닌 값을 포함,  null이면 에러
  Optional<String> name = optPerson.map(Person::getCar).map(Car::getInsurance).map(Insurance::getName);
  ```
+ ![11-3 이차원 Optional](https://user-images.githubusercontent.com/87962572/139439822-b30236fe-5da9-46b1-b261-dc4b548f97f3.PNG)
  
  
+ <u> 안타깝게도 위 코드는 컴파일 되지 않는다</u>
+ optPerson의 형식은 Optional<People>이므로 map으로 호출할 수 있다.
+ 하지만 getCar은 Optional<Car>형식의 객체를 반환한다.
+ map의 연산의 결과는 Optional<Optional<Car>> 형식의 객체다.
+ getInsurance는 또 다른 Optional 객체를 반환하므로 getInsurane 메서드를 지원하지 않는다.
+ 
+ 
+ flatMap을 사용하면 이런 문제를 해결할 수 있다.<br/>
+ flatMap은 함수의 인수로 받아서 다른 스트림을 반환하는 메서드다.<br/>
+ 보통 인수로 받은 함수를 스트림의 각 요소에 적용하면 스트림의 스트림이 만들어진다<br/>
+ 하지만, flatMap은 인수로 받은 함수를 적용해서 생성된 각각의 스트림에서 콘텐츠만 남긴다.<br/>
+ 즉, 함수를 적용해서 생성된 모든 스트림이 하나의 스트림으로 병합되어 평준화된다.<br/>
+ 
+ ![11-4 스트림과 Optional의 flatMap 메서드 비교](https://user-images.githubusercontent.com/87962572/139439832-06082766-4117-473f-a7e3-4767e225699c.PNG)
+ 
+ flatMap 메서드로 전달된 함수는 각각의 정사각형을 두 개의 삼각형을 포함하는 스트림으로 변환한다.<br/>
+ map을 적용한 결과로 세 개의 스트림을 포함하는 하나의 스트림이 생성된다.<br/>
+ flatMap 메서드 덕분에 이차원 스트림이 여섯개의 삼각형을 포함하는 일차원 스트림으로 바뀐다.<br/>
+ 
+ <b>Optional 로 자동차의 보험회사 이름 찾기</b>
+ 
+ ```
+ public String getCarInsuranceName(Optional<Person> person){
+  return person.flatMap(Person::getCar)
+               .flatMap(Car::getInsurance)
+               .map(Insurance::getName).orElse("Unkwon");
+ }
+ ```
+ 
+ Optional을 활용하여 null을 확인하느라 조기 분기문을 추가해서 코드를 복잡하게 만들지 않으면서도 쉽게 이해할 수 있는 코드로 완성했다.
+ 
+ <h3>11.3.4 Optional 스트림 조작</h3>
+ 자바 9에서는 Optional을 포함하는 스트림을 쉽게 처리할 수 있도록 Optional에 stream() 메서드를 추가했다.
+ Optional 스트림을 값을 가진 스트림으로 변환할 때 이 기능을 유용하게 활용할 수 있다.
+ 
+ ex) List<Person>을 인수로 받아 자동차를 소유한 사람들이 가입한 보험회사의 이름을 포함하는 Set<String>을 반환하도록 메서드를 구현해야한다.
+ ```
+ public Set<String> getCarInsuranceNames(List<Person> persons){
+  return persons.steram().map(Person::getCar) ☜ 사람목록을 각 사람이 보유한 자동차의 Optional<Car> 스트림으로 반환
+        .map(OptCar -> optCar.flatMap(Car::getInsurance)) ☜ flatMap연산을 이용해 Optional<Car>을 해당 Optional<Insurance>로 변환
+        .map(OptIns -> optCar.map(Insurance::getName)) ☜ Optional<Insurance> 를 해당 이름의 Optional<String>으로 매핑
+        .flatMap(Optional::stream) ☜ Stream<Optional<String>>을 현재 이름을 포함하는 Stream<String>으로 변환
+        .collect(toSet()); ☜ 결과 문자열을 중복되지 않은 값을 갖도록 집합으로 수집
+ }
+ ```
+ - getCar메서드가 단순히 Car가 아니라 Optional<Car>를 반환하므로 사람이 자동차를 가지지 않을 수도 있는 상황이다.<br/>
+ - 따라서 첫번째 map변환을 수행하고 Stream<Optional<Car>>를 얻는다.<br/>
+ - 이어지는 두 개의 map연산을 이용해 Optional<Car>를 Optional<Insurance>로 변환한 다음에 스트림이 아니라 각각의 요소에 했던 것처럼 각각을 Optional<String>으로 변환한다.<br/>
+ - 세 번의 변환 과정을 거친 결과 Stream<Optional<String>>을 얻는데 사람이 차를 갖고 있지 않거나 또는 차가 보험에 가입되어 있지 않아 결과가 비어있을 수 있다.<br/>
+ - 마지막 결과를 얻으려면 빈 Optional을 제거하고 값을 언랩해야 한다는 것이 문제다.<br/>
+ - 다음 코드처럼 filter, map을 순차적으로 이용해 결과를 얻을 수 있다.<br/>
+ 
+ <h3>11.3.5 디폴트 액션과 Optional 언랩</h3>
+ - get()은 값을 읽는 가장 간단한 메서드면서 동시에 가장 안전하지 않은 메서드다. 메서드는 get은 래핑된 값이 있으면 해당 값을 반환하고 값이 없으면 NoSuchElementException을 발생한다.
+ 따라서 Optional에 값이 반드시 있다고 가정할 수 있는 상황이 아니면 get 메서드를 사용하지 않는 것이 바람직하다.<br/>
+ - orElse(T other) 를 사용했다. orElse메서드를 이용하면 Optional이 값을 포함하지 않을 때 기본값을 제공할 수 있다.<br/>
+ - orElseGet(Supplier<? extends T> other) 는 orElse 메서드에 대응하는 게으른 버전의 메서드다. Optional에 값이 없을 때만 Supplier가 실행되기 때문이다.<br/>
+ - orElseThrow(Supplier<? extends x> exceptionSupplier)는 Optional이 비어있을 때 예외를 발생시킨다는 점에서 get메서드와 비슷하다.<br/>
+ - ifPresent(Consumer<? super T> consumer)를 이용하면 값이 존재할 때 인수로 넘겨준 동작을 실행할 수 있다. 값이 없으면 아무 일도 일어나지 않는다.<br/>
+ 
+<h3>11.3.6 두 Optional 합치기</h3>
+이제 Person과 Car정보를 이용해서 가장 저렴한 보험료를 제공하는 보험회사를 찾는 몇몇 복잡한 비즈니스 로직을 구현한 외부 서비스가 있다고 가정하자.<br/>
+2개의 Optional을 인수로 받아서 Optional<Insurance>를 반환하는 null안전 버전의 메서드를 구현해야 한다고 가정하자.<br/>
+인수로 전달한 값 중 하나라도 비어있으면 빈 Optional<Insurance>를 반환한다.<br/>
+Optional클래스는 Optional이 값을 포함하는 지 여부를 알려주는 ifPresent라는 메서드로 제공한다.<br/>
+따라서 isPresent를 이용해서 다음처럼 코드를 구현할 수 있다.<br/>
+
+```
+public Optional<Insurance> nullSafeFindCheapestInsurance(Optional<Person> person, Optional<Car> car){
+ if(person.ifPresent() && car.isPresent()){
+  return Optional.of(findCheadestInsurance(person.get(), car.get());
+ }else{
+  return Optional.empty();
+ } 
+}
+```
+이 메서드의 장점은 person과 car의 시그니처만으로 둘 다 아무값도 반환하지 않을 수 있다는 정보를 명시적으로 보여준다는 것이다.
+Optional클래스에서 제공하는 기능을 이용해서 이 코드를 더 자연스럽게 개선할 수 없을까? ☞ filter
+
+<h3>11.3.7 필터로 특정값 거르기</h3>
+ex) 보험회사 이름이 'CambridgeInsurance'인지 확인해야 한다고 가정하자.<br/>
+이 작업을 안전하게 수행하려면 다음 코드에서 보여주는 것처럼 Insuracne 객체가 null 인지 여부를 확인한 다음에 getName메서드를 호출해야 한다.<br/>
+
+```
+Insurance insurance = ...;
+if(insurance != null && "CambridgeInsurance".equals(insurance.getName())){
+ System.out.println("ok");
+}
+```
+
+Optional 객체에 filter 메서드를 이용해서 다음과 같이 코드를 재구현할 수 있다.<br/>
+
+```
+Optional<Insurance> optInsurance = ...;
+optInsurance.filter(insuracne -> "CambridgeInsurance".equals(insurance.getName())).
+ifPresent(x -> System.out.println("ok"));
+```
+
+filter 메서드는 프레디케이트를 인수로 받는다.<br/>
+Optional객체가 값을 가지며 프레디케이트와 일치하면 filter 메서드는 그 값을 반환하고 그렇지 않으면 빈 Optional 객체를 반환한다.<br/>
+Optional은 최대 한 개의 요소를 포함할 수 있는 스트림과 같다고 설명했으므로 이 사실을 적용하면 filter 연산의 결과를 쉽게 이해할 수 있다.<br/>
+Optional이 비어있다면 filter 연산은 아무 동작도 하지 않는다.<br/>
+
+```
+empty	: 빈 Optional 인스턴스 반환
+filter	: 값이 존재하며 프레디케이트와 일치하면 값을 포함하는 Optional 반환하고 없으면 빈 Optional반환
+flatMap :	값이 존재하면 인수로 제공된 함수를 적용한 결과 Optional 반환하고 값이 없으면 빈 Optional 반환
+get :	값이 존재하면 Optional이 감싸고 있는 값을 반환하고 값이 없으면 NoSuchElementException 발생
+ifPresent :	값이 존재하면 지정된 Consumer를 실행하고, 값이 없으면 아무 일도 일어나지 않음
+ifPresentOrElse :	값이 존재하면 지정된 Consumer를 실행하고, 값이 없으면 아무 일도 일어나지 않음
+isPresent :	값이 존재하면 true, 없으면 false 반환
+map :	값이 존재하면 제공된 매핑 함수를 적용
+of :	값이 존재하면 값을 감싸는 Optional을 반환하고 값이 없으면 NullPointerException 발생
+ofNullable :	값이 존재하면 값을 감싸는 Optional을 반환하고 값이 없으면 빈 Optional 반환
+or :	값이 존재하면 같은 Optional을 반환하고 값이 없으면 Supplier에서 만든 Optional을 반환
+orElse :	값이 존재하면 값을, 없으면 기본값 반환
+orElseGet :	값이 존재하면 값을, 없으면 Supplier에서 제공하는 값을 반환
+orElseThrow	: 값이 존재하면 값을 반환하고 값이 없으면 Supplier에서 생성한 예외를 발생
+stream :	값이 존재하면 존재하는 값만 포함하는 스트림 반환하고 값이 없으면 빈 스트림 반환
+```
+
+* 잠재적으로 null이 될 수 있는 대상을 Optional로 감싸기 *
+
+```
+Object value = map.get("key");
+```
+
+Map의 get 메서드는 요청한 키에 대응하는 값을 찾지 못했을 때 null을 반환한다.
+지금까지도 실펴본 것처럼 null을 반환하는 것보다는 Optional을 반환하는 것이 더 바람직하다.
+get 메서드의 시그니처는 우리가 고칠 수 없지만 get메서드의 반환값은 Optional로 감쌀 수 있다.
+
+```
+Optional<Object> value = Optional.ofNullable(map.get("key"));
+
+* 예외와 Optional 클래스 *
+자바 API는 어떤 이유에서 값을 제공할 수 없을 때 NULL을 반환하는 대신 예외를 발생시킬 때도 있습니다.<br/>
+예를들어, Integer.parseInt(String) 인 경우에도 문자열을 정수로 변환하는 정적 메서드이며 문자열을 반환하지 못할 때 NumberFormatException을 발생한다.<br/>
+즉, 문자열이 숫자가 아니라는 사실을 예외로 알리는 것이다.<br/>
+
+정수로 변환할 수 없는 문자열 문제를 빈 Optional로 해결할 수 있다.<br/>
+즉, parseInt가 Optional을 반환하도록 모델링할 수 있다.<br/>
+
+```
+public static Optional<Integer> stringToInt(String s){
+ try{
+  return Optional.of(Integer.parseInt(s));
+ }catch(NumberFormatException e){
+  return Optional.empty();
+ }
+}
+```
