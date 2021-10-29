@@ -384,6 +384,7 @@ get 메서드의 시그니처는 우리가 고칠 수 없지만 get메서드의 
 
 ```
 Optional<Object> value = Optional.ofNullable(map.get("key"));
+```
 
 * 예외와 Optional 클래스 *
 자바 API는 어떤 이유에서 값을 제공할 수 없을 때 NULL을 반환하는 대신 예외를 발생시킬 때도 있습니다.<br/>
