@@ -108,6 +108,17 @@
  Period tenDays = Period.between(LocalDate.of(2017,9,11), LocalDate.of(2017,9,21));
  ```
  
+ <h3>TemporalAdjusters 사용하기</h3>
+ 때로는 다음주 일요일, 돌아오는 평일, 어떤 달의 마지막 날 등 좀 더 복잡한 날짜 조정 기능이 필요할 것이다.
+ 이때는 오버로드된 버전의 with메서드에 좀 더 다양한 동작을 수행하도록 하는 기능을 제공하는 TemporalAdjuster를 전달하는 방법으로 문제를 해결할 수 있다.
+ 
+ ```
+ LocalDate date1 = LocalDate.of(2014,3,18);
+ LocalDate date2 = date1.with(nextOrSame(DayOfWeek.SUNDAY));
+ LocalDate date3 = date2.with(lastDayOfMonth());
+ ```
+ 
+ 
  
  
  
