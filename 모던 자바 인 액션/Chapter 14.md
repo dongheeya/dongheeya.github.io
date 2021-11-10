@@ -264,6 +264,8 @@ module com.iteratrlearning.ui {
 }
 ```
 
+com.iteratrlearning.ui.widgets 의 접근 권한을 가진 사용자의 권한을 com.iteratrlearning.ui.widgetuser 로 제한할 수 있다.
+
 <h3>open 과 opens</h3>
 모듈 선언에 open한정자를 이용하면 모든 패키지를 다른 모듈에 반사적으로 접근을 허용할 수 있다.<br/>
 open한정자는 모듈의 가시성에 다른 영향을 미치지 않는다.<br/>
