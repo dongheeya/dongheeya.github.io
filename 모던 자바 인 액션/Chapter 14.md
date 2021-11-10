@@ -157,7 +157,7 @@ exports 라는 구문이 새로 등장했는데 exports는 다른 모듈에서 �
 
 <h3>requires 구문</h3>
 module-info.java
-
+특정 모듈을 import할때 
 
 ```
 module expenses.readers {
