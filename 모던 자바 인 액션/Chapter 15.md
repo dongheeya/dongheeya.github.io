@@ -224,6 +224,7 @@ System.out.println(y.get() + z.get());
 마찬가지로 메서드 g도 Future를 반환하며 세 번째 코드는 get() 메서드를 이용해 두 Future가 완료되어 결과가 합쳐지기를 기다린다.<br/>
 
 <h3>리액티브 형식 API</h3>
+
 ```
 void f(int x, IntConsumer dealWithResult);
 ```
