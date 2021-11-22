@@ -92,8 +92,8 @@ public static void delay(){
 }
 ```
 
-deplay를 이용해서 지연을 흉내 낸 다음에 임의의 계산값을 반환하도록 getPrice를 구현할 수 있다.
-제품명에 charAt을 적용해서 임의의 게산값을 반환한다.
+deplay를 이용해서 지연을 흉내 낸 다음에 임의의 계산값을 반환하도록 getPrice를 구현할 수 있다.<br/>
+제품명에 charAt을 적용해서 임의의 게산값을 반환한다.<br/>
 
 ```
 public double getPrice(String product){
@@ -105,3 +105,77 @@ private double calculatePrice(String product){
   return random.nextDouble() * product.charAt(0) + product.charAt(1);
 }
 ```
+
+<h3>동기 메서드를 비동기 메서드로 변환</h3>
+동기 메서드 getPrice를 비동기 메서드로 변환하려면 다음 코드처럼 먼저 이름(getPriceAsync)과 반환값을 바꿔야 한다.<br/>
+Future는 결과값의 핸들일 뿐이며 계산이 완료되며 get 메서드로 결과를 얻을 수 있다.<br/>
+getPriceAsync 메서드는 즉시 반환되므로 호출자 스레드는 다른 작업을 수행할 수 있다.<br/>
+
+```
+public Future<Double> getPriceAsync(String product) {
+    CompletableFuture<Double> futurePrice = new CompletableFuture<>();  ☞ 계산 결과를 포함할 CompletableFuture를 생성한다.
+        new Thread( () -> {
+            double price = calculatePrice(product);  ☞  다른 스테르에서 비동기저그로 계산을 수행한다.
+            futurePrice.complete(price);             ☞  오랜 시간이 걸리면 계산이 완료되며 Future에 값을 설정한다.
+        }).start();
+    return futurePrice;                              ☞ 계산 결과가 완료되길 기다리지 않고 Future를 반환한다.  
+}
+```
+
+비동기 계산과 완료 결과를 포함하는 CompletableFuture 인스턴스를 만들었다.<br/>
+실제 가격을 계산할 다른 스레드를 만든 다음에 오래 걸리는 계산 결과를 기다리지 않고 '결과를 포함할 Future 인스턴스를 바로 반환'했다.<br/>
+
+```
+Shop shop = new Shop("BestShop");
+long start = System.nanoTime();
+Future<Double> futurePrice = shop.getPriceAsync("my favorite product"); 
+long invocationTime = ((System.nanoTime() - start) / 1_000_000);
+System.out.println("Invocation returned after " + invocationTime 
+ + " msecs");
+ 
+// 제품의 가격을 계산하는 동안
+doSomethingElse();
+// 다른 상점 겸색 등 다른 작업 수행
+try {
+    double price = futurePrice.get();  ☞ 가격 정보가 있으면 Future에서 가격 정보를 읽고, 가격 정보가 없으면 가격 정보를 받을 때까지 블록한다.
+    System.out.printf("Price is %.2f%n", price);
+} catch (Exception e) {
+    throw new RuntimeException(e);
+}
+long retrievalTime = ((System.nanoTime() - start) / 1_000_000);
+System.out.println("Price returned after " + retrievalTime + " msecs");
+```
+
+상점은 비동기 API를 제공하므로 즉시 Future를 반환한다.<br/>
+클라이언트는 반환된 Future를 이용해서 나중에 결과를 어더을 수 있다.<br/>
+그 사이 클라이언트는 다른 상점에 가격 정보를 요청하는 등 첫 번째 상점으 결과를 기다리면서 대기하지 않고 다른 작업을 처리할 수 있다.<br/>
+
+클라이언트가 특별히 할일이 없으면 Future의 get메서드를 호출한다.<br/>
+이때 Future가 결과값을 가지고 있다면 Future에 포함된 값을 읽거나 아니면 값이 계산될 때까지 블록한다.<br/>
+
+<h3>에러 처리 방법</h3>
+위의 소스에서 가격을 계산하는 동안 에러가 발생하면 어떻게 될까?<br/>
+예외가 발생하면 해당 스레드에만 영향을 미친다.<br/>
+에러가 발생해도 가격 계산은 계속 진행되며 일으 순서가 꼬인다.<br/>
+<b>결과적으로 클라이언트는 get 메서드가 반환될 때까지 영원히 기다리게 될 수도 있다.</b>
+
+이처럼 블록 문제가 발생할 수 있는 상황에서는 타임아웃을 활용하는 것이 좋다.<br/>
+그래야 문제가 발생했을 때 클라이언트가 영원히 블록되지 않고 타임아웃 시간이 지나면 TimeoutException을 받을 수 있다.
+
+```
+public Future<Double> getPriceAsync(String product) {
+    CompletableFuture<Double> futurePrice = new CompletableFuture<>();
+    new Thread( () -> {
+    try {
+        double price = calculatePrice(product);
+        futurePrice.complete(price); ☞ 계산이 정상적으로 종료되면 Future에 가격 정보를 저장한 채로 Future를 종료한다.
+    } catch (Exception ex) {
+        futurePrice.completeExceptionally(ex);  ☞ 도중에 문제가 발생하면 발생한 에러를 포함시켜 Future를 종료한다.
+    }
+    }).start();
+    
+    return futurePrice;
+}
+```
+
+
