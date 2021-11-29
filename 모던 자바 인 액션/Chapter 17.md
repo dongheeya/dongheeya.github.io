@@ -132,11 +132,11 @@ Subscriber 인터페이스의 모든 메서드 구현이 Publisher를 블록하�
 
 <h3>첫 번째 리액티브 애플리케이션 만들기</h3>
 
-Flow 클래스에 정의된 인터페이스 대부분은 직접 구현하도록 의도된 것이 아니다
+Flow 클래스에 정의된 인터페이스 대부분은 직접 구현하도록 의도된 것이 아니다<br/>
 자바 9 java.util.concurrency.Flow 명세는 이들 라이브러리가 준수해야 할 규칙과 다양한 리액티브 라이브러리를 이용해 개발된 리액티브 애플리케이션이 서로 협동하고
-소통할 수 있는 공용어를 제시한다.
+소통할 수 있는 공용어를 제시한다.<br/>
 
-예를들어, 온도를 전달하는 간단한 예제로 배운 4개의 인터페이스를 활용해보자.
+예를들어, 온도를 전달하는 간단한 예제로 배운 4개의 인터페이스를 활용해보자.<br/>
 
 ```
 import java.util.Random;
@@ -205,6 +205,7 @@ public class TempSubscription implements Subscription {
 ```
 
 새 요소를 얻을 때마다 Subscription이 전달한 온도를 출력하고 새 레포트를 요청하는 Subscriber 클래스를 다음처럼 구현한다.
+
 ```
 import java.util.concurrent.Flow.*;
 public class TempSubscriber implements Subscriber<TempInfo> {
@@ -232,5 +233,250 @@ public class TempSubscriber implements Subscriber<TempInfo> {
         System.out.println("Done!");
     }
 }
+
+// 실제 동작할 수 있도록 Publisher를 만들고 TempSubscrier를 이용해 Publisher에 구독하도록 Main클래스를 구현한 코드이다.
+public class Main {
+ public static void main( String[] args ) {
+  getTemperatures( "New York" ).subscribe( new TempSubscriber() );   ◀ 뉴욕에 새 Publisher를 만들고 TempSubscriber를 구독시킴
+ }
+ private static Publisher<TempInfo> getTemperatures( String town ) { ◀ 구독한 Subscriber에게 TempSubcription을 전송하는 Publisher를 반환
+  return subscriber -> subscriber.onSubscribe( 
+  new TempSubscription( subscriber, town ) );
+ }
+}
 ```
 
+여기에서 스택 오버플로우가 발생한다면 어떻게 해결할 수 있을까? Executor를 TempSubscription으로 추가한 다음 다른 스레드에서 TempSubscriber로 세 요소를 전달하는 방법이 있다.
+
+```
+public class TempSubscription implements Subscription { 
+ private static final ExecutorService executor = 
+ Executors.newSingleThreadExecutor();
+ 
+ @Override
+ public void request( long n ) {
+  executor.submit( () -> {  ◀ 다른 스레드에서 다음 요소를 구독자에게 보낸다.
+   for (long i = 0L; i < n; i++) {
+    try {
+     subscriber.onNext( TempInfo.fetch( town ) );
+    } catch (Exception e) {
+     subscriber.onError( e );
+     break;
+    }
+  }
+ });
+ }
+}
+```
+
+<h3>Processor로 데이터 변환하기</h3>
+Processor는 Subscriber이며 동시에 Publisher이다. 사실 Processor의 목적은 Publisher를 구독한 다음 수신한 데이터를 가공해 다시 제공하는 것이다.<br/>
+화씨로 제공된 데이터를 섭씨로 변환해 다시 방출하는 다음의 예제를 통해 Processor를 구현해보자.<br/>
+
+```
+public class TempProcessor implements Processor<TempInfo, TempInfo> {  // TempInfo를 다른 TempInfo로 변환하는 프로세서
+ private Subscriber<? super TempInfo> subscriber;
+ 
+ @Override
+ public void subscribe( Subscriber<? super TempInfo> subscriber ) {
+  this.subscriber = subscriber;
+ }
+ 
+ @Override
+ public void onNext( TempInfo temp ) {
+  subscriber.onNext( new TempInfo( temp.getTown(), (temp.getTemp() - 32) * 5 / 9) );  // 섭씨로 변환한 다음 TempInfo를 다시 전송
+ }
+ 
+ @Override
+ public void onSubscribe( Subscription subscription ) { // 다른 모든 신호는 업스트림 구독자에 전달
+  subscriber.onSubscribe( subscription ); 
+ }
+ 
+ @Override
+ public void onError( Throwable throwable ) {           // 다른 모든 신호는 업스트림 구독자에 전달
+  subscriber.onError( throwable ); 
+ }
+ 
+ @Override
+ public void onComplete() {      // 다른 모든 신호는 업스트림 구독자에 전달
+  subscriber.onComplete(); 
+ }
+}
+```
+TempProcessor에서 로직을 포함하는 유일한 ㅔ서드인 onNext는 화씨를 섭씨로 변혼하는 다음 온도를 재전송한다.<br/>
+Subscriber로 전달하며 Publisher의 subscribe메서드는 업스트림 Subscriber를 Processor로 등록하는 동작을 수행한다.<br/>
+
+```
+import java.util.concurrent.Flow.*;
+public class Main {
+ public static void main( String[] args ) {
+  getCelsiusTemperatures( "New York" ).subscribe( new TempSubscriber() ); 
+ }
+ 
+ public static Publisher<TempInfo> getCelsiusTemperatures(String town) {
+  return subscriber -> {
+   TempProcessor processor = new TempProcessor();    ▶TempProcessor를 만들고 subscriber와 반환된 Publisher사이로 연결
+   processor.subscribe( subscriber );
+   processor.onSubscribe( new TempSubscription(processor, town) );
+  };
+ }
+}
+```
+
+<h3>Observable 만들고 사용하기</h3>
+Observable, Flowable 클래스는 다양한 종류의 리액티브 스트림을 편리하게 만들 수 있도록 여러 팩토리 메서드를 제공한다.
+
+미리 정의한 몇 개의 요소를 이용해 간단한 Observable을 만들 수 있다.
+
+```
+// just 는 팩토리 메서드는 한 개 이상의 요소를 이용해 이를 방출하는 Observable로 변환한다.
+// Observable의 구독자는 onNext("first"), onNext("second"), onComplete()의 순서로 메세지를 받는다.
+Observable<String> strings = Obervale.just("first","second");
+
+// 사용자와 실시간으로 상호작용하면서 지정된 속도로 이벤트를 방출하는 상황에서 유용하게 시용할 수 있는 다른 Oberservable  팩토리 메서드도 있다.
+Observable<Long> onePerSec = Observable.interval(1, TimeUnit.SECONDS);
+//interval 은 onePerSec라는 변수로 Oberservale을 반환해 할당한다.
+// 이 Oberservale은 0에서 시작해 1초 간겨그로 long형식의 값을 무한으로 증가시키며 값을 방출한다.
+```
+
+최종 목표를 달성하기 전에 중간 과정으로 이들 온도를 매 초마다 출력할 수 있다.<br/>
+그러려면 onePerSec에 가입해서 매 초마다 온도를 받고 이를 이용해 관심이 있는 도시의 온도를 출력해야 한다.<br/>
+Obervable은 역압력을 지원하지 않으므로 Subscription의 request 메서드를 포함하지 않는다.<br/>
+
+```
+pubilc interface Observer<T>{
+ void onSubscriber(Disposalble d);
+ void onNext(T t);   // onNext 메서드의 시그니처에 해당하는 람다 표현식을 전달해 Observalble을 구독할 수 있다.
+ void onError(Throwable t);  
+ void onComplete();
+}
+
+// Observable onPerSec에 가입하고 뉴욕에서 매 초마다 발생하는 온도를 출력하는 기능을 코드 한 줄로 구현할 수 있다.
+onePerSec.subscribe(i -> System.out.println(TempInf.fetch("New York")));
+
+// sleep 메서드를 추가해 프로그램이 종료되는 걸 막는 방법도 있다. 현재 스레드에서 콜백을 호출하는 blokingSubscribe메서드를 사용하면 더 깔끔하게 문제를 해결할 수 있다.
+blokingSubscribe 가 적합하다.
+onePerSec.blockingSubscribe(
+ i -> System.out.println(TempInfo.fetch("New York"))
+);
+```
+
+출력결과는 다음과 같이 나타난다.
+```
+New York : 87
+New York : 18
+New York : 75
+java.lang.RuntimeException: Error!
+at flow.common.TempInfo.fetch(TempInfo.java:18)
+at flow.Main.lambda$main$0(Main.java:12)
+at io.reactivex.internal.observers.LambdaObserver
+ .onNext(LambdaObserver.java:59)
+at io.reactivex.internal.operators.observable
+ .ObservableInterval$IntervalObserver.run(ObservableInterval.java:74
+```
+
+이는 설계상 온도를 가져오는 기능이 임의로 실패하기 때문이다. <br/>
+이 기능을 일반화하고 처리되지 않은 예외를 추가해보자.<br/>
+
+```
+public static Obervable<TempInfo> getTemerature(String town) {
+ return Observable.create(emitter -> 
+  Observable.interval(1, TimeUnit.SECONDS)  ◀ 매 초마다 무한으로 증가하는 일련의 long 값을 방출하는 Observable
+   .subscribe(i -> {
+   if (!emitter.isDisposed()) {    ◀ 소비된 옵저버가 아직 폐기 되지않았으면 어떤 작업을 수행
+     if ( i >= 5 ) { 
+     emitter.onComplete();
+     } else {
+     try {
+     emitter.onNext(TempInfo.fetch(town));  ◀ 아니면 온도를 Observer로 보고
+     } catch (Exception e) {
+     emitter.onError(e);  ◀ 에러가 발생하면 Observer에 알림
+     }
+   }
+  }}))
+}
+```
+
+필요한 이벤트를 전송하는 ObservableEmitter를 소비하는 함수로 Observable을 만들어 반환했다.<br/>
+RxJava의 ObservableEmitter 인터페이스는 RxJava의 기본 Emitter를 상속한다.<br/>
+
+```
+public interface Emitter<T> {
+  void onNext(T t);
+  void onError(Throwable t);
+  void onCompleter();
+}
+```
+
+Emitter는 새 Disposable 을 설정하는 메서드와 시퀀스가 이미 다운스트림을 폐기했는지 확인하는 메서드 등을 제공한다.<br/>
+
+아래의 코드에서 보여주는 것처럼 getTemperatur 메서드가 반환하는 Observable에 가입시킬 Observer를 쉽게 완성해서 전달된 온도를 출력할 수 있다.<br/>
+
+```
+public class TempObserver implements Observer<TempInfo> {
+ @Override
+ public void onComplete() {
+  System.out.println( "Done!" );
+ }
+ 
+ @Override
+ public void onError( Throwable throwable ) {
+  System.out.println( "Got problem: " + throwable.getMessage() );
+ }
+ 
+ @Override
+ public void onSubscribe( Disposable disposable ) {
+ }
+ 
+ @Override
+ public void onNext( TempInfo tempInfo ) {
+  System.out.println( tempInfo );
+ }
+}
+
+public class Main {
+ public static void main(String[] args) {
+ Observable<TempInfo> observable = getTemperature( "New York" );   // 매 초마다 뉴욕의 온도 보고를 방출하는 Observable만들기
+ observable.blockingSubscribe( new TempObserver() );    // 단순 Observer로 이 Observable에 가입해서 온도 출력하기
+ }
+}
+
+```
+
+<h3>Observable 을 변환하고 합치기</h3>
+- 수평선 : 표시된 리액티브 스트림에 임의의 순서로 구성된 요소가 기하학적 모형이 나타난다.<br/>
+- 특수 기호 : 에러나 완료 신호를 나타낸다<br/>
+- 박스 : 해당 연산이 요소를 어떻게 변환하거나 여러 스트림을 어떻게 합치는 지 보여준다.<br/>
+
+![17-4](https://user-images.githubusercontent.com/87962572/143868882-e7e35bb9-b00e-497b-9f67-b70866f62b1c.PNG)
+1) Observable의 시간선이다. 시간은 왼쪽에서 오른쪽으로 흐른다.<br/>
+2) Observable이 방출하는 항목이다<br/>
+3) 세로 선은 Observable이 성공적으로 완료되었음을 가리킨다.<br/>
+4) 점섬과 상자는 Observable에 적용되는 변환을 가리킨다. 상자 안의 텍스트는 변환의 종류를 가리킨다.<br/>
+5) 변환 결과 Observable이다.<br/>
+6) 어떤 이유로 Observable이 비정상 종료되어 에러가 발생하면 수직선이 X로 바뀐다.<br/>
+
+아래 그림은 MAP(Observable이 발행하는 요소를 반환)과 merge(두 개 이상의 Observable이 방출한 이벤트를 하나로 합침)의 예다.
+
+![17-5](https://user-images.githubusercontent.com/87962572/143869359-3fe14fbf-bece-4ee5-bd56-5882dcbf543d.PNG)
+
+map, merge를 이용해 어떻게 기존에 구현한 RxJava 예제를 개선하고 기능을 추가할 수 있을지 궁금할 것이다.<br/>
+map을 이용하면 다음 예제에서 볼 수 있는 것처럼 플로 api processor를 이용하는 것보다 조금 더 깔끔하게 화씨를 섭씨로 바꿀 수 있다.<br/>
+
+```
+// getTemperature 메서드가 반환하는 Observable을 받아 화씨를 섭씨로 바꾼 다음 매 초 한 개씩 온도를 다시 방출하는 또 다른 Observable을 반환한다.
+public static Observable<TempInfo> getCelsiusTemperature(String town) {
+  return getTemperature( town ).map( temp -> new TempInfo( temp.getTown(), (temp.getTemp() - 32) * 5 / 9) );
+}
+
+// 한 개 이상 도시으 온도 보고를 합친다.
+public static Observable<TempInfo> getCelsiusTemperatures(String... towns) {
+ return Observable.merge(Arrays.stream(towns).map(TempObservable::getCelsiusTemperature).collect(toList()));
+}
+```
+
+온도를 얻으려는 도시 집합을 포함하는 가변 인수를 받는다.<br/>
+이 가변 인수를 문자열 스트림으로 변환한 다음 각 문자열의 getcelsiusTemperature 메서드로 전달한다.<br/>
+이런식으로 각 도시는 매 초마다 도시의 옫노를 방출하는 Obserable로 변신한다.<br/>
+마지막으로 Observabledml 스트림은 리스트로 모아지며 다시 리스트는 Observable 가 제공하는 정적 팩토리메서드 merge로 전달된다.<br/>
+이 메서드는 Observable의 Iterable을 인수로 받아 마치 한 개의 Observable처럼 동작하도록 결과를 합친다. <br/>
