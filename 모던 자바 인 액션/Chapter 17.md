@@ -113,14 +113,12 @@ Subscriber는 요소를 받아 처리할 수 있음을 Publisher에 알려야 �
 마지막으로 Subscriber는 Subscription ,request 메서드 호출 없이도 언제든 종료 시그널을 받을 준비가 되어있어야 하며, Subscription.cancel()이 호출된 이후에라도 한 개 이상의 onNext
 를 받을 준비가 되어있어야 한다.<br/>
 
-Publishr와 Subscriber는 정확하게 Subscription을 공유해야 하며 각각이 고유한 역할을 수행해야 한다. 그러러면 onSubscribe와 onNext 메서드에서 Subscriber는 request 메서드를 동기적으로<br/>
+Publishr와 Subscriber는 정확하게 Subscription을 공유해야 하며 각각이 고유한 역할을 수행해야 한다. 그러러면 onSubscribe와 onNext 메서드에서 Subscriber는 request 메서드를 동기적으로
 호출할 수 있어야한다. <br/>
-표준에서는 Subscription.cancel()메서든 몇 번을 호출해도 한 번 호출한 것과 같은 효과를 가져야 하며, 여러 번 이 메서드를 호출해도 다른 추가 호출에 별 영향이 없도록 <br/>
+표준에서는 Subscription.cancel()메서든 몇 번을 호출해도 한 번 호출한 것과 같은 효과를 가져야 하며, 여러 번 이 메서드를 호출해도 다른 추가 호출에 별 영향이 없도록 
 스레드에 안전해야 한다고 명시하자.<br/>
 
 다음은 플로 API에서 정의하는 인터페이스를 구현한 애플리케이션의 평범한 생명주기를 보여준다.<br/>
-
-
 
 ![17-3](https://user-images.githubusercontent.com/87962572/143776929-929235c7-b0f8-442a-9c3f-3d2af0d017d9.PNG)
 
@@ -134,4 +132,105 @@ Subscriber 인터페이스의 모든 메서드 구현이 Publisher를 블록하�
 
 <h3>첫 번째 리액티브 애플리케이션 만들기</h3>
 
+Flow 클래스에 정의된 인터페이스 대부분은 직접 구현하도록 의도된 것이 아니다
+자바 9 java.util.concurrency.Flow 명세는 이들 라이브러리가 준수해야 할 규칙과 다양한 리액티브 라이브러리를 이용해 개발된 리액티브 애플리케이션이 서로 협동하고
+소통할 수 있는 공용어를 제시한다.
+
+예를들어, 온도를 전달하는 간단한 예제로 배운 4개의 인터페이스를 활용해보자.
+
+```
+import java.util.Random;
+public class TempInfo {
+
+ public static final Random random = new Random();
+ private final String town;
+ private final int temp;
+ 
+ public TempInfo(String town, int temp) {
+     this.town = town;
+     this.temp = temp;
+ }
+ 
+ public static TempInfo fetch(String town) { ◀ 정적 팩토리 메서드를 이용해 해당 도시의 TempInfo 인스턴스를 만든다.
+     if (random.nextInt(10) == 0)            ◀ 10분의 1 확률로 온도를 가져오기 작업이 실패한다.
+        throw new RuntimeException("Error!"); 
+     
+     return new TempInfo(town, random.nextInt(100)); ◀ 0에서 99 사이에서 임의의 화씨 온도를 반영한다.
+ }
+ 
+ @Override
+ public String toString() {
+    return town + " : " + temp;
+ }
+ 
+ public int getTemp() {
+    return temp;
+ }
+ 
+ public String getTown() {
+    return town;
+ }
+ 
+}
+```
+
+간단한 도메인 모델을 정의한 다음에는 다음 예제에서 보여주는 것처럼 Subscriber가 요청할 때마다 해당 도시의 온도를 전소하도록 Subsciption을 구현한다.
+
+```
+import java.util.concurrent.Flow.*;
+public class TempSubscription implements Subscription {
+    private final Subscriber<? super TempInfo> subscriber;
+    private final String town;
+    public TempSubscription( Subscriber<? super TempInfo> subscriber, String town ) {
+     this.subscriber = subscriber;
+     this.town = town;
+    }
+    @Override
+    public void request( long n ) {   
+     for (long i = 0L; i < n; i++) {  ◀ Subscriber가 만든 요청을 한 개씩 반복
+         try {
+            subscriber.onNext( TempInfo.fetch( town ) );  ◀ 현재 온도를 Subsciber로 전달
+         } catch (Exception e) {
+            subscriber.onError( e );  ◀ 온도 가져오기를 실패하면 Subscriber로 에러를 전달
+            break;
+         }
+        }
+    }
+    
+    @Override
+    public void cancel() {
+        subscriber.onComplete();  ◀ 구독을 취소하면 완료 onComplete 신호를 Subscriber로 전달
+    }
+}
+```
+
+새 요소를 얻을 때마다 Subscription이 전달한 온도를 출력하고 새 레포트를 요청하는 Subscriber 클래스를 다음처럼 구현한다.
+```
+import java.util.concurrent.Flow.*;
+public class TempSubscriber implements Subscriber<TempInfo> {
+    private Subscription subscription;
+    
+    @Override
+    public void onSubscribe( Subscription subscription ) {  ◀ 구독을 저장하고 첫 번째 요청을 전달
+        this.subscription = subscription; 
+        subscription.request( 1 );
+    }
+    
+    @Override
+    public void onNext( TempInfo tempInfo ) {  ◀ 수신한 온도를 출력하고 다음 정보를 요청
+        System.out.println( tempInfo ); 
+        subscription.request( 1 );
+    }
+    
+    @Override
+    public void onError( Throwable t ) {  ◀ 에러가 발생하면 에러 메세지 출력
+        System.err.println(t.getMessage());
+    }
+    
+    @Override
+    public void onComplete() { 
+        System.out.println("Done!");
+    }
+}
+```
 
