@@ -113,9 +113,60 @@ ex) "raoul".replace('r','R') 이라는 코드는 항상 같은 결과가 나오�
 자바에서는 참조 투명성과 관련한 작은 문제가 있다.<br/>
 ex) List를 반환하는 메서드를 두 번 호출한다고 가정하자.<br/>
 두 번의 호출 결과로 같은 요소를 포함하지만 서로 다른 메모리 공간에 생성된 리스트를 참조할 것이다.<br/>
+결과 리스트를 순수값으로 사용할 것ㅇ라면 두 리스트가 같은 객체라고 볼 수 있으므로 리스트 생성 함수는 참조적으로 투명한 것으로 간주할 수 있다.
+일반적으로 함수형 코드에서는 이런 함수를 참조적으로 투명한 것으로 간주한다.
 
+<h3>함수형 실전 연습</h3>
+{1,4,9}처럼 List< Integer > 가 주어졌을 때 이것의 모든 서브 집합의 멤버로 구성된 List< List< Integer > > 를 만드는 프로그램을 만든다고 가정하자.
+예를 들어, {1,4,9}의 서브 집합은 {1,4,9},{1,4},{1,9},{4,9},{1},{4},{9},{} 다.
+빈 집합 {}를 포함해서 총 8개의 서브집합이 존재하며 각 서브집합은 List< Integer > 형식으로 이루어져 있으므로 최종 정답의 형식은 List <List < Integer > >다.
 
+보통 {1,4,9}의 서브집합 중 1을 포함하는 집합과 아닌 집합으로 구분해서 문제를 풀려 시도할 것이다.
+1을 포함하지 않는 부분집합은 {4,9}의 부분집합이고, 1을 포함하는 부분집합은 {4,9}의 모든 부분집합에 1을 포함시켜 얻을 수 있다.
+이와 같은 접근 방식은 가장 쉽고 자연스러운 함수형 자바 프로그래밍이다.
 
+```
+// subsets자체도 기존의 구조를 갱신하지 않으므로 함수형이다.
+static List<List<Integer>> subsets(List<Integer> list) {
+ if (list.isEmpty()) {     ▶ 입력리스트가 비어있다면 빈 리스트 자신이 서브 집합니다.
+    List<List<Integer>> ans = new ArrayList<>();
+     ans.add(Collections.emptyList());
+     return ans;
+ }
+ 
+ Integer fst = list.get(0);
+ List<Integer> rest = list.subList(1,list.size());
+ List<List<Integer>> subAns = subsets(rest);  ▶ 빈 리스트가 아니면 먼저 하나의 욧를 꺼내고 나머지 요소의 모든 서브 집합을 찾아서 subsets로 전달한다.
+ List<List<Integer>> subAns2 = insertAll(fst, subAns); ▶ subans, subans2를 연결하면 정답이 완성된다.
+ 
+ return concat(subAns, subAns2); 
+}
+
+static List<List<Integer>> insertAll(Integer fst, List<List<Integer>> lists) {
+ List<List<Integer>> result = new ArrayList<>();
+ for (List<Integer> list : lists) {
+     List<Integer> copyList = new ArrayList<>();  ▶ 리스트를 복사한 다음에 복사한 리스트에 요소를 추가한다. 구조체가 가변이라도 저수준 구조를 복사하지 않는다.
+     copyList.add(fst);
+     copyList.addAll(list);
+     result.add(copyList);
+ }
+ return result;
+}
+
+static List<List<Integer>> concat(List<List<Integer>> a, List<List<Integer>> b) {
+ List<List<Integer>> r = new ArrayList<>(a);
+ r.addAll(b);
+ return r;
+}
+
+```
+입력으로 {1,4,9}를 제공하면 결과로 {},{9},{4},{4,9},{1},{1,9},{1,4},{1,4,9}를 얻게된다.
+그리고 subset는 함수내에서 또 subset를 호출하고 반환하는 형식으로 구현이 되어잇거 수학접 귀납법의 인수처럼 처리되고있다.
+
+concat함수는 순수함수이다. 내부적으로 리스트 r에 요소를 추가하는 변화가 발생하지만 반환 결과는 오로지 인수에 의해 이루어지며
+인수의 정보를 변경하지 않는다.
+
+<h2>재귀와 반복</h2>
 
 
 
