@@ -63,11 +63,52 @@ Spring WebFlux 엔드 포인트도 가질 수 있습니다.
 얼마 전까지는 Java 진영에 Non Blocking 을 지원하는 DB Driver가 없었지만, 최근에 R2DBC 가 릴리즈되어 이제는 Java 에서도 Non Blocking 으로 DB 를 접근할 수 있게 되었다.)
 
 ```
-
-
-
-
  
  참고url :
  https://heeyeah.github.io/spring/2020-02-29-web-flux/
  https://devuna.tistory.com/108
+
+
+
+
+---
+
+<h1>NHN WEBFLUX동영상 시청후 정리(20220608) </h1>
+
+1. WebFlux를 선택한 이유?
+2. WebFlux가 느렸던 이유 - 성능 측정 결과/ 성능 개선 사항
+
+Spring MVC  
+- 보통 할당한 처리를 모두 처리할때까지 기다림<BR/>
+- Thread pool은 보통 200개<BR/>
+
+- Thread가 모든 Task를 처리하고 하나의 Thread가 처리하는 동안에 다른 Thread는 기다리고 있는다.<BR/>
+( A Thread가 처리하고 있으면 B Thread는 waiting 을 하고 있고,<BR/>
+ A Thread가 완료처리되면 B Thread가 runnable 상태를 왔다갔다함)<BR/>
+- cpu가 한정된 곳에서 Thread 200개들이 저마다 서로 cpu를 점유하기 위해 경합함<BR/>
+
+
+WebFlux는 = Event 단위로 처리되는 단위임 = Event Pool<BR/>
+- Netty기반으로 동작하며,<BR/>
+- Netty는 THread 개수는 machine의 core개수의 X2배를 지니고 있음<BR/>
+
+- I/O가 시작되는 것도 Event, I/O가 종료되어 처리되는 것도 Event로 취급 <BR/>
+- 따라서 모든 Event 단위가 Queue에 들어가므로<BR/>
+- Thread 상태가 blocking되지 않는다.<BR/>
+- Context Switing overhead도 줄어들음<BR/>
+- 또한 Thread 상태가 Event 단위로 보다 작게 처리되어 cpu점유하기위한 경합도 줄어들음<BR/>
+
+- 높은 처리량 : Event단위로 처리되어 cpu사용량을 줄어들음/ 그래서 전반적으로 성능이 높아짐<BR/>
+
+2. 나의 WebFlux가 느린 이유?<BR/>
+
+2-1.log() <- 해당 log는 blocking 메서드이므로 webFlux에서 blocking이 포함되면 결국 spring MVC보다 못한 결과가 된다.<br/>
+2-2.map()과 flapMap()의 차이점<br/>
+- map : 동기식 함수를 사용 -> map을 계속 사용하게 되면 성능이 느려진다.<br/>
+- flapMap() : 비동기 형식<br/>
+
+3. BlockHound : Blocking 메서드를 찾아주는 라이브러리
+4. Lettuce 설정 : command설정마다 ping command를 synchronous로 실행(성능 저하됨)
+
+5. Avoiding Reactor Meltdown : 상황에 따라서 Blocking API를 사용해야될때 Blocking 소스를 위한 별도의 pool를 만들어줌
+
